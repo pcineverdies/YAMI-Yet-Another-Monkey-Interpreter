@@ -1,13 +1,20 @@
+from ast import Expression
 import _Ast.ast as ast
 import _Lexer.lexer as lexer
 import _Token.token as token
+from _Parser.priority import *
 
 class Parser:
     def __init__(self, lexer):
-        self.l          = lexer
-        self.curToken   = None
-        self.peekToken  = None
-        self.errors     = []
+        self.l              = lexer
+        self.curToken       = None
+        self.peekToken      = None
+        self.errors         = []
+        self.prefixParseFns = {}
+        self.infixParseFns  = {}
+
+        self.registerPrefix(token.IDENT,    self.parseIdentifier)
+        self.registerPrefix(token.INT,      self.parseIntegerLiteral)
 
         self.nextToken()
         self.nextToken()
@@ -32,10 +39,10 @@ class Parser:
     def parseStatement(self):
         if self.curToken.type == token.LET:
             return self.parseLetStatement()
-        if self.curToken.type == token.RETURN:
+        elif self.curToken.type == token.RETURN:
             return self.parseReturnStatement()
         else:
-            return None
+            return self.parseExpressionStatement()
     
     def parseLetStatement(self):
         stmt = ast.LetStatement(self.curToken, None, None)
@@ -84,3 +91,45 @@ class Parser:
         msg = "expected next token to be {}, got {}".format(token, self.peekToken.type)
         self.errors.append(msg)
 
+    def registerPrefix(self, tokenType, fn):
+        self.prefixParseFns[tokenType] = fn
+    
+    def registerInfix(self, tokenType, fn):
+        self.infixParseFns[tokenType] = fn
+
+    def parseExpressionStatement(self):
+        stmt = ast.ExpressionStatement(self.curToken, None)
+        stmt.expression = self.parseExpression(LOWEST)
+
+        if self.peekTokenIs(token.SEMICOLON):
+            self.nextToken()
+        
+        return stmt
+
+    def parseExpression(self, priority):
+        prefix = None
+
+        if self.curToken.type in self.prefixParseFns:
+            prefix = self.prefixParseFns[self.curToken.type]
+
+        if prefix is None:
+            return None
+        
+        leftExp = prefix()
+    
+        return leftExp
+
+    def parseIdentifier(self):
+        return ast.Identifier(self.curToken, self.curToken.literal)
+
+    def parseIntegerLiteral(self):
+        lit = ast.IntegerLiteral(self.curToken, None)
+
+        try:
+            lit.value = int(self.curToken.literal)
+        except ValueError:
+            msg = "could not parse {} as integer".format(self.curToken.literal)
+            self.errors.append(msg)
+            return None
+
+        return lit
