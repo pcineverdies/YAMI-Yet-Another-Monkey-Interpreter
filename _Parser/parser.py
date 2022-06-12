@@ -15,6 +15,17 @@ class Parser:
 
         self.registerPrefix(token.IDENT,    self.parseIdentifier)
         self.registerPrefix(token.INT,      self.parseIntegerLiteral)
+        self.registerPrefix(token.BANG,     self.parsePrefixExpression)
+        self.registerPrefix(token.MINUS,    self.parsePrefixExpression)
+
+        self.registerInfix(token.PLUS,      self.parseInfixExpression) 
+        self.registerInfix(token.MINUS,     self.parseInfixExpression) 
+        self.registerInfix(token.SLASH,     self.parseInfixExpression) 
+        self.registerInfix(token.ASTERISK,  self.parseInfixExpression) 
+        self.registerInfix(token.EQ,        self.parseInfixExpression) 
+        self.registerInfix(token.NOT_EQ,    self.parseInfixExpression) 
+        self.registerInfix(token.LT,        self.parseInfixExpression) 
+        self.registerInfix(token.GT,        self.parseInfixExpression)
 
         self.nextToken()
         self.nextToken()
@@ -113,9 +124,22 @@ class Parser:
             prefix = self.prefixParseFns[self.curToken.type]
 
         if prefix is None:
+            self.noPrefixParseFnError(self.curToken.type)
             return None
-        
+         
         leftExp = prefix()
+
+        while not self.peekTokenIs(token.SEMICOLON) and priority < self.peekPrecedence():
+            infix = None 
+            if self.peekToken.type in self.infixParseFns:
+                infix = self.infixParseFns[self.peekToken.type]     
+
+            if infix is None:
+                return leftExp
+            
+            self.nextToken()
+
+            leftExp = infix(leftExp)
     
         return leftExp
 
@@ -133,3 +157,31 @@ class Parser:
             return None
 
         return lit
+
+    def noPrefixParseFnError(self, token):
+        msg = "no prefix parse function for {} found".format(token)
+        self.errors.append(msg)
+    
+    def parsePrefixExpression(self):
+        expression = ast.PrefixExpression(self.curToken, self.curToken.literal, None)
+        self.nextToken()
+        expression.right = self.parseExpression(PREFIX)
+        return expression
+
+    def peekPrecedence(self):
+        if self.peekToken.type in precedences:
+            return precedences[self.peekToken.type]    
+        return LOWEST
+
+    def curPrecedence(self):
+        if self.curToken.type in precedences:
+            return precedences[self.curToken.type]    
+        return LOWEST
+    
+    def parseInfixExpression(self, left):
+        expression = ast.InfixExpression(self.curToken, left, self.curToken.literal, None)
+        precedence = self.curPrecedence()
+        self.nextToken()
+        expression.right = self.parseExpression(precedence)
+
+        return expression

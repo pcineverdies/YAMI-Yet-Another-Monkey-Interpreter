@@ -1,3 +1,4 @@
+from ast import operator
 import _Token.token as token
 
 class Node:
@@ -124,3 +125,34 @@ class IntegerLiteral(Expression):
     def string(self):
         return self.token.literal
 
+class PrefixExpression(Expression):
+    def __init__(self, token, operator, right):
+        self.token = token
+        self.operator = operator
+        self.right = right
+    
+    def expressionNode(self):
+        return super().expressionNode()
+    
+    def tokenLiteral(self):
+        return self.token.literal
+    
+    def string(self):
+        return "(" + self.operator + self.right.string() + ")"
+
+class InfixExpression(Expression):
+    def __init__(self, token, left, operator, right):
+        self.token = token
+        self.left = left
+        self.operator = operator
+        self.right = right
+    
+    def expressionNode(self):
+        return super().expressionNode()
+    
+    def tokenLiteral(self):
+        return self.token.literal
+    
+    def string(self):
+        return "(" + self.left.string() + " " + self.operator + " " + self.right.string() + ")"
+    
