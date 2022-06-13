@@ -1,6 +1,7 @@
 import _Lexer.lexer as lexer
 import _Token.token as token
 import _Parser.parser as parser
+import _Evaluator.evaluator as evaluator
 
 PROMPT = ">> "
 
@@ -16,7 +17,9 @@ def start():
         if len(p.getErrors()) != 0:
             printParserErrors(p.getErrors())
         
-        print(program.string())
+        evaluated = evaluator.Eval(program)
+        if evaluated is not None:
+            print(evaluated.insepct())
 
 def printParserErrors(errors):
     for msg in errors:
