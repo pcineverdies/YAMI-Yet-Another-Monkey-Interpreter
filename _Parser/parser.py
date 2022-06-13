@@ -17,6 +17,11 @@ class Parser:
         self.registerPrefix(token.INT,      self.parseIntegerLiteral)
         self.registerPrefix(token.BANG,     self.parsePrefixExpression)
         self.registerPrefix(token.MINUS,    self.parsePrefixExpression)
+        self.registerPrefix(token.TRUE,     self.parseBoolean)
+        self.registerPrefix(token.FALSE,    self.parseBoolean)
+        self.registerPrefix(token.LPAREN,   self.parseGroupedExpression)
+        self.registerPrefix(token.IF,       self.parseIfExpression)
+        self.registerPrefix(token.FUNCTION, self.parseFunctionLiteral)
 
         self.registerInfix(token.PLUS,      self.parseInfixExpression) 
         self.registerInfix(token.MINUS,     self.parseInfixExpression) 
@@ -26,6 +31,7 @@ class Parser:
         self.registerInfix(token.NOT_EQ,    self.parseInfixExpression) 
         self.registerInfix(token.LT,        self.parseInfixExpression) 
         self.registerInfix(token.GT,        self.parseInfixExpression)
+        self.registerInfix(token.LPAREN,    self.parseCallExpression)
 
         self.nextToken()
         self.nextToken()
@@ -42,6 +48,8 @@ class Parser:
 
             if stmt != None:
                 program.statements.append(stmt)
+            else:
+                return program
             
             self.nextToken()
         
@@ -66,7 +74,10 @@ class Parser:
         if not self.expectPeek(token.ASSIGN):
             return None 
         
-        while not self.curTokenIs(token.SEMICOLON):
+        self.nextToken()
+        stmt.value = self.parseExpression(LOWEST)
+
+        if self.peekTokenIs(token.SEMICOLON):
             self.nextToken()
         
         return stmt
@@ -75,8 +86,10 @@ class Parser:
         stmt = ast.ReturnStatement(self.curToken, None)
 
         self.nextToken()
+        
+        stmt.value = self.parseExpression(LOWEST)
 
-        while not self.curTokenIs(token.SEMICOLON):
+        if self.peekTokenIs(token.SEMICOLON):
             self.nextToken()
         
         return stmt
@@ -185,3 +198,115 @@ class Parser:
         expression.right = self.parseExpression(precedence)
 
         return expression
+
+    def parseBoolean(self):
+        return ast.Boolean(self.curToken, self.curTokenIs(token.TRUE))
+    
+    def parseGroupedExpression(self):
+        self.nextToken()
+        exp = self.parseExpression(LOWEST)
+
+        if not self.expectPeek(token.RPAREN):
+            return None
+        
+        return exp
+    
+    def parseIfExpression(self):
+        expression = ast.IfExpression(self.curToken, None, None, None)
+
+        if not self.expectPeek(token.LPAREN):
+            return None
+        
+        self.nextToken()
+        expression.condition = self.parseExpression(LOWEST)
+
+        if not self.expectPeek(token.RPAREN):
+            return None
+        if not self.expectPeek(token.LBRACE):
+            return None
+        
+        expression.consequence = self.parseBlockStatement()
+    
+        if self.peekTokenIs(token.ELSE):
+            self.nextToken()
+            if not self.expectPeek(token.LBRACE):
+                return None
+            expression.alternative = self.parseBlockStatement()
+
+        return expression
+    
+    def parseBlockStatement(self):
+        block = ast.BlockStatement(self.curToken, [])
+
+        self.nextToken()
+
+        while not self.curTokenIs(token.RBRACE) and not self.curTokenIs(token.EOF):
+            stmt = self.parseStatement()
+            if stmt is not None:
+                block.statements.append(stmt)
+            self.nextToken()
+        
+        return block
+    
+    def parseFunctionLiteral(self):
+        lit = ast.FunctionLiteral(self.curToken, None, None)
+        if not self.expectPeek(token.LPAREN):
+            return None
+        
+        lit.parameters = self.parseFunctionParameters()
+    
+        if not self.expectPeek(token.LBRACE):
+            return None
+        
+        lit.body = self.parseBlockStatement()
+    
+        return lit
+    
+    def parseFunctionParameters(self):
+        identifiers = []
+
+        if self.peekTokenIs(token.RPAREN):
+            self.nextToken()
+            return identifiers
+        
+        self.nextToken()
+
+        ident = ast.Identifier(self.curToken, self.curToken.literal)
+        identifiers.append(ident)
+
+        while self.peekTokenIs(token.COMMA):
+            self.nextToken()
+            self.nextToken()
+            ident = ast.Identifier(self.curToken, self.curToken.literal)
+            identifiers.append(ident)
+        
+        if not self.expectPeek(token.RPAREN):
+            return None
+        
+        return identifiers
+    
+    def parseCallExpression(self, function):
+        exp = ast.CallExpression(self.curToken, function, None)
+        exp.arguments = self.parseCallArguments()
+        return exp
+    
+    def parseCallArguments(self):
+        args = []
+
+        if self.peekTokenIs(token.RPAREN):
+            self.nextToken()
+            return args
+        
+        self.nextToken()
+
+        args.append(self.parseExpression(LOWEST))
+
+        while self.peekTokenIs(token.COMMA):
+            self.nextToken()
+            self.nextToken()
+            args.append(self.parseExpression(LOWEST))
+        
+        if not self.expectPeek(token.RPAREN):
+            return None
+        
+        return args

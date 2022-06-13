@@ -1,4 +1,6 @@
+import array
 from dataclasses import dataclass
+from turtle import st
 from _Lexer.lexer import *
 from _Ast.ast import *
 from _Parser.parser import *
@@ -7,24 +9,31 @@ import string
 
 class TestParser(unittest.TestCase):
     def testLetStatements(self):
-        input = """
-            let x = 5;
-            let y = 10;
-            let foobar = 838383;
-        """
+        @dataclass
+        class TestCase:
+            input :              str
+            expectedIdentifier : str
+            expectedValue :      ...
 
-        l = Lexer(input)
-        p = Parser(l)        
+        tests = [
+            TestCase("let x = 5", "x", 5),
+            TestCase("let y = true", "y", True),
+            TestCase("let foobar = y", "foobar", "y"),
+        ] 
 
-        program = p.parseProgram()
-        self.checkParserErrors(p)
+        for elem in tests:
+            l = Lexer(elem.input)
+            p = Parser(l)        
 
-        self.checkLen(program.statements, 3)
+            program = p.parseProgram()
+            self.checkParserErrors(p)
 
-        expected = ["x", "y", "foobar"]
+            self.checkLen(program.statements, 1)
 
-        for i, tt in enumerate(expected):
-            self.letStatement(program.statements[i], tt)
+            stmt = program.statements[0]
+            self.letStatement(stmt, elem.expectedIdentifier)
+            val = stmt.value
+            self.literalExpression(val, elem.expectedValue)
 
     def letStatement(self, stt, expectedIdentifier):
         self.checkTokenLiteral(stt.tokenLiteral(), "let")
@@ -99,11 +108,12 @@ class TestParser(unittest.TestCase):
         class TestCase:
             input:          string
             operator:       string
-            integerValue:   int
+            value:          Expression
         
         prefixTest = [
             TestCase("!5", "!", 5),
-            TestCase("-15", "-", 15)
+            TestCase("-15", "-", 15),
+            TestCase("!false", "!", False),
         ]
 
         for elem in prefixTest:
@@ -119,13 +129,18 @@ class TestParser(unittest.TestCase):
             exp = stmt.expression
             self.checkInstanceOf(exp, PrefixExpression)
             self.checkEqualValue("exp.operator", exp.operator, elem.operator)
-            self.integerLiteral(exp.right, elem.integerValue)
+            self.literalExpression(exp.right, elem.value)
         
     def integerLiteral(self, il, value):
         self.checkInstanceOf(il, IntegerLiteral)
         self.checkEqualValue("il.value", il.value, value)
         self.checkEqualValue("il.tokenLiteral", il.tokenLiteral(), str(value))
 
+    def infixExpression(self, exp, left, operator, right):
+        self.checkInstanceOf(exp, InfixExpression)
+        self.literalExpression(exp.left, left)
+        self.checkEqualValue("exp.operator", operator, exp.operator)
+        self.literalExpression(exp.right, right)
 
     def testParsingInfixExpression(self):
         @dataclass
@@ -144,6 +159,7 @@ class TestParser(unittest.TestCase):
             TestCase("5 < 5;",  5, "<",  5), 
             TestCase("5 == 5;", 5, "==", 5), 
             TestCase("5 != 5;", 5, "!=", 5),
+            TestCase("true != false", True, "!=", False),
         ]
 
         for elem in infixTests:
@@ -154,13 +170,9 @@ class TestParser(unittest.TestCase):
             self.checkParserErrors(p)
 
             self.checkLen(program.statements, 1)
-            stmt = program.statements[0]
-            self.checkInstanceOf(stmt, ExpressionStatement)
-            exp = stmt.expression
-            self.checkInstanceOf(exp, InfixExpression)
-            self.integerLiteral(exp.left, elem.leftValue)
-            self.checkEqualValue("exp.operator", exp.operator, elem.operator)
-            self.integerLiteral(exp.right, elem.rightValue)
+            self.checkInstanceOf(program.statements[0], ExpressionStatement)
+            exp = program.statements[0].expression
+            self.infixExpression(exp, elem.leftValue, elem.operator, elem.rightValue)
 
     def testOperatorPrecedenceParsing(self):
         @dataclass
@@ -169,14 +181,27 @@ class TestParser(unittest.TestCase):
             expected:   string
         
         tests = [
-            TestCase("!-a", "(!(-a))",                                                     ),
-            TestCase("a + b + c", "((a + b) + c)",                                         ),
-            TestCase("a + b - c","((a + b) - c)",                                          ),
-            TestCase("a * b * c","((a * b) * c)",                                          ),
-            TestCase("a * b / c","((a * b) / c)",                                          ),
-            TestCase("a + b / c","(a + (b / c))",                                          ),
-            TestCase("a + b * c + d / e - f", "(((a + (b * c)) + (d / e)) - f)"            ), 
-            TestCase("3 + 4 * 5 == 3 * 1 + 4 * 5", "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))"),
+            TestCase("!-a", "(!(-a))",                                  ),
+            TestCase("a + b + c", "((a + b) + c)",                      ),
+            TestCase("a + b - c","((a + b) - c)",                       ),
+            TestCase("a * b * c","((a * b) * c)",                       ),
+            TestCase("a * b / c","((a * b) / c)",                       ),
+            TestCase("a + b / c","(a + (b / c))",                       ),
+            TestCase("a + b * c + d / e - f", 
+                     "(((a + (b * c)) + (d / e)) - f)"                  ), 
+            TestCase("3 + 4 * 5 == 3 * 1 + 4 * 5", 
+                     "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))"           ),
+            TestCase("3 < 5 == false", "((3 < 5) == false)"             ),
+            TestCase("3 < 5 == false", "((3 < 5) == false)"             ),
+            TestCase("3 < 5 == false", "((3 < 5) == false)"             ),
+            TestCase("( 5 + 5 ) * 2", "((5 + 5) * 2)"                   ),
+            TestCase("-( 5 + 5 )", "(-(5 + 5))"                         ),
+            TestCase("!(true == false)", "(!(true == false))"           ),
+            TestCase("a + add(b * c) + d", "((a + add((b * c))) + d)"   ),
+            TestCase("add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))", 
+                     "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))"  ),
+            TestCase("!(true == false)", "(!(true == false))"           ),
+
         ]
 
         for elem in tests:
@@ -188,6 +213,163 @@ class TestParser(unittest.TestCase):
 
             actual = program.string()
             self.checkEqualValue("parsed", elem.expected, actual)
+
+    def identifier(self, exp, value):
+        self.checkInstanceOf(exp, Identifier)
+        self.checkEqualValue("exp.value", value, exp.value)
+        self.checkEqualValue("exp.tokenLiteral", value, exp.tokenLiteral())
+
+    def literalExpression(self, exp, expected):
+        if isinstance(expected, bool):
+            self.boolean(exp, expected)
+        elif isinstance(expected, int):
+            self.integerLiteral(exp, int(expected))
+        elif isinstance(expected, str):
+            self.identifier(exp, expected)
+        else:
+            self.fail("type of exp not handled. got={}", exp)
+
+    def boolean(self, exp, value):
+        self.checkInstanceOf(exp, Boolean)
+        self.checkEqualValue("exp.value", value, exp.value)
+        value = "true" if value else "false"
+        self.checkEqualValue("exp.tokenLiteral", value, exp.tokenLiteral())
+
+    def testBooleanExpression(self):
+        @dataclass
+        class TestCase:
+            input:      string
+            expected:   bool
+        
+        tests = [
+            TestCase("true", True),
+            TestCase("false", False),
+        ]
+
+        for elem in tests:
+            l = Lexer(elem.input)
+            p = Parser(l)
+
+            program = p.parseProgram()
+            self.checkParserErrors(p)
+
+            self.checkLen(program.statements, 1)
+            self.checkInstanceOf(program.statements[0], ExpressionStatement)
+            exp = program.statements[0].expression
+            self.literalExpression(exp, elem.expected)
+    
+    def testIfExpression(self):
+        input = "if (x < y) { x }"
+        l = Lexer(input)
+        p = Parser(l)
+
+        program = p.parseProgram()
+        self.checkParserErrors(p)
+    
+        self.checkLen(program.statements, 1)
+        stmt = program.statements[0]
+        self.checkInstanceOf(stmt, ExpressionStatement)
+        exp = stmt.expression
+        self.checkInstanceOf(exp, IfExpression)
+        self.infixExpression(exp.condition, "x", "<", "y")
+        self.checkLen(exp.consequence.statements, 1)
+        consequence = exp.consequence.statements[0]
+        self.checkInstanceOf(consequence, ExpressionStatement)
+        self.identifier(consequence.expression, "x")
+        self.checkEqualValue("exp.alternative.statements", exp.alternative, None)
+
+    def testIfElseExpression(self):
+        input = "if (x < y) { x } else { y }"
+        l = Lexer(input)
+        p = Parser(l)
+
+        program = p.parseProgram()
+        self.checkParserErrors(p)
+    
+        self.checkLen(program.statements, 1)
+        stmt = program.statements[0]
+        self.checkInstanceOf(stmt, ExpressionStatement)
+        exp = stmt.expression
+        self.checkInstanceOf(exp, IfExpression)
+        self.infixExpression(exp.condition, "x", "<", "y")
+        self.checkLen(exp.consequence.statements, 1)
+        consequence = exp.consequence.statements[0]
+        self.checkInstanceOf(consequence, ExpressionStatement)
+        self.identifier(consequence.expression, "x")
+
+        self.checkLen(exp.alternative.statements, 1)
+        alternative = exp.alternative.statements[0]
+        self.checkInstanceOf(alternative, ExpressionStatement)
+        self.identifier(alternative.expression, "y")
+
+    def testFunctionLiteralParsing(self):
+        input = "fn(x, y) { x + y }"
+
+        l = Lexer(input)
+        p = Parser(l)
+
+        program = p.parseProgram()
+        self.checkParserErrors(p)
+
+        self.checkLen(program.statements, 1)
+        stmt = program.statements[0]
+        self.checkInstanceOf(stmt, ExpressionStatement)
+        function = stmt.expression
+        self.checkInstanceOf(function, FunctionLiteral)
+        self.checkLen(function.parameters, 2)
+        self.literalExpression(function.parameters[0], "x")
+        self.literalExpression(function.parameters[1], "y")
+        self.checkLen(function.body.statements, 1)
+        bodystmt = function.body.statements[0]
+        self.checkInstanceOf(bodystmt, ExpressionStatement)
+        self.infixExpression(bodystmt.expression, "x", "+", "y")
+    
+    def testFunctionParameterParsing(self):
+        @dataclass
+        class TestCase:
+            input:                  str
+            expectedParameters:     array
+
+        tests = [
+            TestCase("fn() {}", []),
+            TestCase("fn(x) {}", ["x"]),
+            TestCase("fn(x, y, z) {}", ["x", "y", "z"]),
+        ]
+
+        for elem in tests:
+            l = Lexer(elem.input)
+            p = Parser(l)
+
+            program = p.parseProgram()
+            self.checkParserErrors(p)
+
+            stmt = program.statements[0]
+            function = stmt.expression
+
+            self.checkEqualValue("length parameters", len(function.parameters), len(elem.expectedParameters))
+            for i, ident in enumerate(elem.expectedParameters):
+                self.literalExpression(function.parameters[i], ident)
+
+    def testCallExpressionParsing(self):
+        input = "add(1, 2 * 3, 4 + 5)"
+
+        l = Lexer(input)
+        p = Parser(l)
+        program = p.parseProgram()
+        self.checkParserErrors(p)
+
+        self.checkLen(program.statements, 1)
+        stmt = program.statements[0]
+        self.checkInstanceOf(stmt, ExpressionStatement)
+        exp = stmt.expression
+        self.checkInstanceOf(exp, CallExpression)
+        self.identifier(exp.function, "add")
+        self.checkLen(exp.arguments, 3)
+
+        self.literalExpression(exp.arguments[0], 1)
+        self.infixExpression(exp.arguments[1], 2, "*", 3)
+        self.infixExpression(exp.arguments[2], 4, "+", 5)
+
 
     def checkLen(self, stmts, expectedLen):
         self.assertTrue(len(stmts) == expectedLen, 
