@@ -1,4 +1,5 @@
 from ast import Eq
+from lib2to3.pgen2.token import COLON
 
 
 ILLEGAL     =   "ILLEGAL"
@@ -12,11 +13,14 @@ PLUS        =   "+"
 
 COMMA       =   ","
 SEMICOLON   =   ";"
+COLON       =   ":"
 
 LPAREN      =   "("
 RPAREN      =   ")"
-LBRACE      =   "["
-RBRACE      =   "]"
+LBRACE      =   "{"
+RBRACE      =   "}"
+LBRACKET    =   "["
+RBRACKET    =   "]"
 
 FUNCTION    =   "FUNCTION"
 LET         =   "LET"
@@ -37,3 +41,5 @@ LT          =   "<"
 GT          =   ">"
 EQ          =   "=="
 NOT_EQ      =   "!="
+
+STRING      =   "STRING"

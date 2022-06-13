@@ -368,7 +368,116 @@ class TestParser(unittest.TestCase):
         self.literalExpression(exp.arguments[0], 1)
         self.infixExpression(exp.arguments[1], 2, "*", 3)
         self.infixExpression(exp.arguments[2], 4, "+", 5)
+    
+    def testStringLiteralExpression(self):
+        input = '"hello world"'
 
+        l = Lexer(input)
+        p = Parser(l)
+        program = p.parseProgram()
+        self.checkParserErrors(p)
+
+        stmt = program.statements[0]
+        self.checkInstanceOf(stmt, ast.ExpressionStatement)
+        literal = stmt.expression
+        self.checkEqualValue("literal.value", "hello world", literal.value)
+
+    def testParsingArrayLiteral(self):
+        input = "[1, 2 * 2, 3 + 3]"
+        l = Lexer(input)
+        p = Parser(l)
+
+        program = p.parseProgram()
+        self.checkParserErrors(p)
+    
+        stmt = program.statements[0]
+        self.checkInstanceOf(stmt, ExpressionStatement)
+        exp = stmt.expression
+        self.checkInstanceOf(exp, ArrayLiteral)
+        self.assertTrue(len(exp.elements) == 3, 
+            "len(array.elements) 3. Got {}".format(len(exp.elements)))   
+        self.integerLiteral(exp.elements[0], 1)
+        self.infixExpression(exp.elements[1], 2, "*", 2)
+        self.infixExpression(exp.elements[2], 3, "+", 3)
+
+    def testParsingIndexExpressions(self):
+        input = "myArray[1 + 1]"
+        l = Lexer(input)
+        p = Parser(l)
+
+        program = p.parseProgram()
+        self.checkParserErrors(p)
+    
+        stmt = program.statements[0]
+        self.checkInstanceOf(stmt, ExpressionStatement)
+        exp = stmt.expression
+        self.checkInstanceOf(exp, IndexExpression)
+        self.identifier(exp.left, "myArray")
+        self.infixExpression(exp.index, 1, "+", 1)
+
+    def testParsingHashLiteralsStringKeys(self):
+        input = '{"one" : 1, "two" : 2, "three" : 3}'
+        l = Lexer(input)
+        p = Parser(l)
+
+        program = p.parseProgram()
+        self.checkParserErrors(p)
+
+
+        stmt = program.statements[0]
+        self.checkInstanceOf(stmt, ast.ExpressionStatement)
+        expression = stmt.expression
+        self.checkInstanceOf(expression, ast.HashLiteral)
+        self.checkLen(expression.pairs, 3)
+
+        expected = {
+            "one" : 1,
+            "two" : 2,
+            "three" : 3,
+        }
+
+        for key, value in expression.pairs.items():
+            self.checkInstanceOf(key, ast.StringLiteral)
+            expectedValue = expected[key.string()]
+            self.integerLiteral(value, expectedValue)
+
+    def testParsingEmptyHashLiterals(self):
+        input = '{}'
+        l = Lexer(input)
+        p = Parser(l)
+
+        program = p.parseProgram()
+        self.checkParserErrors(p)
+
+        stmt = program.statements[0]
+        self.checkInstanceOf(stmt, ast.ExpressionStatement)
+        expression = stmt.expression
+        self.checkInstanceOf(expression, ast.HashLiteral)
+        self.checkLen(expression.pairs, 0)
+
+    def testParsingHashLiteralsWithExpressions(self):
+        input = '{"one" : 0 + 1, "two" : 10 - 8, "three" : 15 / 5}'
+        l = Lexer(input)
+        p = Parser(l)
+
+        program = p.parseProgram()
+        self.checkParserErrors(p)
+
+        stmt = program.statements[0]
+        self.checkInstanceOf(stmt, ast.ExpressionStatement)
+        expression = stmt.expression
+        self.checkInstanceOf(expression, ast.HashLiteral)
+        self.checkLen(expression.pairs, 3)
+
+        expected = {
+            "one" :   lambda e : self.infixExpression(e, 0, "+", 1),
+            "two" :   lambda e : self.infixExpression(e, 10, "-", 8),
+            "three" : lambda e : self.infixExpression(e, 15, "/", 5),
+        }
+
+        for key, value in expression.pairs.items():
+            self.checkInstanceOf(key, ast.StringLiteral)
+            expected[key.string()](value)
 
     def checkLen(self, stmts, expectedLen):
         self.assertTrue(len(stmts) == expectedLen, 

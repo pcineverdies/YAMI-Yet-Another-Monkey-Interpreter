@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 import _Token.token as token
 
 # Abstract class for a Node in AST
@@ -278,3 +278,68 @@ class CallExpression(Expression):
         out += ")"
 
         return out
+    
+class StringLiteral(Expression):
+    def __init__(self, token : token.Token, value : str = None):
+        self.token = token
+        self.value = value
+    
+    def expressionNode(self):
+        return super().expressionNode()
+    
+    def tokenLiteral(self) -> str:
+        return self.token.literal
+    
+    def string(self) -> str:
+        return self.token.literal
+
+class ArrayLiteral(Expression):
+    def __init__(self, token : token.Token, elements : List[Expression] = None):
+        self.token = token
+        self.elements = elements
+    
+    def expressionNode(self):
+        return super().expressionNode()
+    
+    def tokenLiteral(self) -> str:
+        return self.token.literal
+    
+    def string(self) -> str:
+        elements = []
+        for elem in self.elements:
+            elements.append(elem.string())
+        
+        return "[" + ", ".join(elements) + "]"
+
+class IndexExpression(Expression):
+    def __init__(self, token : token.Token, left : Expression = None, index : Expression = None):
+        self.token = token
+        self.left = left
+        self.index = index
+    
+    def expressionNode(self):
+        return super().expressionNode()
+    
+    def tokenLiteral(self) -> str:
+        return self.token.literal
+    
+    def string(self):
+        return "(" + self.left.string() + "[" + self.index.string() + "])"
+    
+class HashLiteral(Expression):
+    def __init__(self, token : token.Token, pairs : Dict = None):
+        self.token = token
+        self.pairs = pairs
+    
+    def expressionNode(self):
+        return super().expressionNode()
+    
+    def tokenLiteral(self) -> str:
+        return self.token.literal
+    
+    def string(self) -> str:
+        pairs = []
+        for key, value in self.pairs.items():
+            pairs.append(key.string() + ":" + value.string())
+        
+        return "{" + ", ".join(pairs) + "}"

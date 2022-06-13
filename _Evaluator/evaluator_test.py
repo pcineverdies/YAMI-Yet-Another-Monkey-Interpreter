@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from os import O_NONBLOCK
 import unittest
 import _Lexer.lexer as lexer
 import _Parser.parser as parser
@@ -151,7 +152,9 @@ class TestEvaluator(unittest.TestCase):
             TestCase("false + true;", "unknown operator: BOOLEAN + BOOLEAN"),
             TestCase("5; false + true; 5", "unknown operator: BOOLEAN + BOOLEAN"),
             TestCase("if (10 > 1) { true + false; }", "unknown operator: BOOLEAN + BOOLEAN"),
-            TestCase("foobar", "identifier not found: foobar")
+            TestCase("foobar", "identifier not found: foobar"),
+            TestCase('"A" - "B"', "unknown operator: STRING - STRING"),
+            TestCase('{"name":"Monkey"}[fn(x){x}];', "unusable as hash key: FUNCTION")
         ]
 
         for elem in tests:
@@ -159,7 +162,7 @@ class TestEvaluator(unittest.TestCase):
             if not isinstance(evaluated, object.Error):
                 self.fail("no error object returned")
             if evaluated.message != elem.expectedMessage:
-                self.fail("wrong error message. expected {}, got {}".format( 
+                self.fail("wrong error message. expected `{}`, got `{}`".format( 
                            elem.expectedMessage, evaluated.message))
             
     def testLetStatements(self):
@@ -210,6 +213,160 @@ class TestEvaluator(unittest.TestCase):
 
         for elem in tests:
             self.typeObject(self.eval(elem.input), elem.expected, object.Integer)
+        
+    def testStringLiteral(self):
+        input = '"Hello World!"'
+
+        evaluated = self.eval(input)
+        self.checkInstanceOf(evaluated, object.String)
+        self.checkValue(evaluated.value, "Hello World!")
+    
+    def testClosures(self):
+        input = """
+            let newAdder = fn(x) {
+                fn(y) {x + y}
+            };
+
+            let addTwo = newAdder(2);
+            addTwo(2);
+        """
+        self.typeObject(self.eval(input), 4, object.Integer)
+    
+    def testStringConcatenation(self):
+        input = '"Hello" + " " +"World!"'
+
+        evaluated = self.eval(input)
+        self.checkInstanceOf(evaluated, object.String)
+        self.checkValue(evaluated.value, "Hello World!")
+
+    def testBuiltinFunctions(self):
+        @dataclass
+        class TestCase:
+            input : str
+            expected : any
+        
+        tests = [ 
+            TestCase('len("");', 0),
+            TestCase('len("four");', 4),
+            TestCase('len("hello world");', 11),
+            TestCase('len(1);', "argument to `len` not supported, got INTEGER"),
+            TestCase('len("one", "two");', "wrong number of arguments. got=2, want=1"),
+        ]
+
+        for elem in tests:
+            evaluated = self.eval(elem.input)
+
+            if isinstance(elem.expected, int):
+                self.typeObject(evaluated, elem.expected, object.Integer)
+            elif isinstance(elem.expected, str):
+                if not isinstance(evaluated, object.Error):
+                    self.fail("object is not error, got {}".format(evaluated.type()))
+                self.checkValue(evaluated.message, elem.expected)
+
+    def testArrayLiterals(self):
+        input = "[1, 2 * 2, 3 + 3]"
+        
+        evaluated = self.eval(input)
+        self.checkInstanceOf(evaluated, object.Array)
+        self.assertEqual(len(evaluated.elements), 3,
+            "array has wrong number of elements. got={}".format(len(evaluated.elements)))
+        self.typeObject(evaluated.elements[0], 1, object.Integer)
+        self.typeObject(evaluated.elements[1], 4, object.Integer)
+        self.typeObject(evaluated.elements[2], 6, object.Integer)
+
+    def testArrayIndexExpression(self):
+        @dataclass
+        class TestCase:
+            input : str
+            expected : any
+        
+        tests = [
+		    TestCase("[1, 2, 3][0]", 1),
+		    TestCase("[1, 2, 3][1]", 2),
+		    TestCase("[1, 2, 3][2]", 3),
+		    TestCase("let i = 0; [1][i];",1 ),
+		    TestCase("[1, 2, 3][1 + 1];", 3),
+		    TestCase("let myArray = [1, 2, 3]; myArray[2];", 3),
+		    TestCase("let myArray = [1, 2, 3]; myArray[0] + myArray[1] + myArray[2];", 6),
+		    TestCase("let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i]", 2),
+		    TestCase("[1, 2, 3][3]", None),
+		    TestCase("[1, 2, 3][-1]", None),            
+        ]
+
+        for elem in tests:
+            evaluated = self.eval(elem.input)
+            if isinstance(elem.expected, int):
+                self.typeObject(evaluated, elem.expected, object.Integer)
+            else:
+                self.nullObject(evaluated)
+            
+    def testStringHashKey(self):
+        t1 = object.String("Hello World")
+        t2 = object.String("Hello World")
+        t3 = object.String("foobar")
+        t4 = object.String("foobar")
+    
+        self.assertEqual(t1.hashKey(), t2.hashKey(),    "strings with same content have different hash keys")
+        self.assertEqual(t3.hashKey(), t4.hashKey(),    "strings with same content have different hash keys")
+        self.assertNotEqual(t1.hashKey(), t3.hashKey(), "strings with different content have same hash keys")
+
+    def testHashLiteral(self):
+        input = """
+            let two = "two";
+            {
+                "one" : 10 - 9,
+                two   : 1 + 1,
+                "thr" + "ee" : 6 / 2, 
+                4 : 4,
+                true : 5,
+                false : 6
+            }
+        """
+
+        evaluated = self.eval(input)
+        self.checkInstanceOf(evaluated, object.Hash)
+
+        expected = {
+            object.String("one").hashKey()   : 1,
+            object.String("two").hashKey()   : 2,
+            object.String("three").hashKey() : 3,
+            object.Integer(4).hashKey()      : 4,
+            object.TRUE.hashKey()            : 5,
+            object.FALSE.hashKey()           : 6,
+        }
+
+        self.assertEqual(len(evaluated.pairs), len(expected))
+
+        for expectedKey, expectedValue in expected.items():
+            if not expectedKey in evaluated.pairs:
+                self.fail("no pair for given key in pairs")
+            
+        self.typeObject(evaluated.pairs[expectedKey].value, expectedValue, object.Integer)
+    
+    def testHashIndexExpression(self):
+        @dataclass
+        class TestCase:
+            input : str
+            expected : any
+        
+        tests = [ 
+            TestCase('{"foo": 5}["foo"]', 5),
+            TestCase('{"foo": 5}["bar"]', None),
+            TestCase('let key = "foo"; {"foo": 5}[key]', 5),
+            TestCase('{}["foo"]', None),
+            TestCase('{5: 5}[5]', 5),
+            TestCase('{true: 5}[true]', 5),
+            TestCase('{false: 5}[false]', 5),
+        ]
+
+        for elem in tests:
+            evaluated = self.eval(elem.input)
+            if isinstance(elem.expected, int):
+                self.typeObject(evaluated, elem.expected, object.Integer)
+            else:
+                self.nullObject(evaluated)
+
+# -------------------- NO TEST ----------------------------------
 
     def nullObject(self, evaluated : object.Object):
         self.assertEqual(evaluated, object.NULL, "object is not NULL")
@@ -220,15 +377,3 @@ class TestEvaluator(unittest.TestCase):
     def checkValue(self, got : any, wanted : any):
         self.assertEqual(got, wanted,
                 "object has wrong value. got={}, want={}".format(got, wanted))
-
-    def testClosures(self):
-        input = """
-            let newAdder = fn(x) {
-                fn(y) {x + y}
-            };
-
-            let addTwo = newAdder(2);
-            addTwo(2);
-        """
-
-        self.typeObject(self.eval(input), 4, object.Integer)

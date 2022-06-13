@@ -1,6 +1,8 @@
 from typing import List
 import _Ast.ast as ast
 import _Object.object as object
+import _Evaluator.builtins as builtins
+from _Evaluator.utils import newError
 
 # main evaluator (recursive) function: depending on the curret ast.node,
 # it calls different functions
@@ -95,6 +97,33 @@ def Eval(node : ast.Node, env : object.Environment) -> object.Object:
 
         # apply the function
         return applyFunction(function, args)
+    
+    # case of string
+    elif isinstance(node, ast.StringLiteral):
+        return object.String(node.value)
+
+    # array literals
+    elif isinstance(node, ast.ArrayLiteral):
+        elements = evalExpressions(node.elements, env)
+        if len(elements) == 1 and isError(elements[0]):
+            return elements[0]
+        return object.Array(elements)
+
+    # index expression
+    elif isinstance(node, ast.IndexExpression):
+        left = Eval(node.left, env)
+        if isError(left):
+            return left
+        
+        index = Eval(node.index, env)
+        if isError(index):
+            return index
+        
+        return evalIndexExpression(left, index)
+    
+    # hash literal
+    elif isinstance(node, ast.HashLiteral):
+        return evalHashLiteral(node, env)
 
     # no functino to eval the ast.node
     else:
@@ -132,6 +161,9 @@ def evalInfixExpression(operator : str, left : object.Object, right : object.Obj
     # case of both integers
     if left.type() == object.INTEGER_OBJ and right.type() == object.INTEGER_OBJ:
         return evalIntegerInfixExpression(operator, left, right)
+    
+    if left.type() == object.STRING_OBJ and right.type() == object.STRING_OBJ:
+        return evalStringInfixExpression(operator, left, right)
     
     if operator == "==":
         return nativeBoolToBooleanObject(left == right)
@@ -219,9 +251,6 @@ def evalBlockStatements(block : ast.BlockStatement, env : object.Environment) ->
 
     return result
 
-def newError(*args):
-    return object.Error(args[0].format(*args[1:]))
-
 def isError(obj : object.Object) -> bool:
     if obj is not None:
         return obj.type() == object.ERROR_OBJ
@@ -230,9 +259,14 @@ def isError(obj : object.Object) -> bool:
 # get the identifer from the current env
 def evalIdentifier(node : ast.Identifier, env : object.Environment) -> object.Object:
     val, ok = env.get(node.value)
-    if not ok:
-        return newError("identifier not found: " + node.value)
-    return val
+    if ok:
+        return val
+    
+    if node.value in builtins.builtins:
+        return builtins.builtins[node.value]
+
+    return newError("identifier not found: " + node.value)
+
 
 # eval expressions as input of function call
 def evalExpressions(exps : List[ast.Expression], env : object.Object) -> List[object.Object]:
@@ -248,15 +282,18 @@ def evalExpressions(exps : List[ast.Expression], env : object.Object) -> List[ob
 
 # apply a function
 def applyFunction(fn : object.Object, args : List[object.Object]) -> object.Object:
-    if not isinstance(fn, object.Function):
-        return newError("not a function: {}", fn.type())
-    if len(fn.parameters) != len(args):
-        return newError("wrong number of parametrs: wanted {}, got {}", len(fn.parameters), len(args))
-    
+    if isinstance(fn, object.Function):
     # we extended the environment of a function pushing the arguments too
-    extendedEnv = extendFunctionEnvironment(fn, args)
-    evaluated = Eval(fn.body, extendedEnv)
-    return unwrapReturnValue(evaluated)
+        if len(fn.parameters) != len(args):
+            return newError("wrong number of parametrs: wanted {}, got {}", len(fn.parameters), len(args))
+        extendedEnv = extendFunctionEnvironment(fn, args)
+        evaluated = Eval(fn.body, extendedEnv)
+        return unwrapReturnValue(evaluated)
+    
+    if isinstance(fn, object.Builtin):
+        return fn.fn(*args)
+    
+    return newError("not a function: {}", fn.type())
 
 # extend function environment
 def extendFunctionEnvironment(fn : object.Object, args : List[object.Object]) -> object.Environment:
@@ -272,3 +309,58 @@ def unwrapReturnValue(ev : object.Object) -> object.Object:
         return ev.value
     
     return ev
+
+def evalStringInfixExpression(operator : str, left : object.Object, right : object.Object) -> object.Object:
+    if operator != "+":
+        return newError("unknown operator: {} {} {}", left.type(), operator, right.type())
+    
+    leftVal = left.value
+    rightVal = right.value
+    return object.String(leftVal + rightVal)
+
+def evalIndexExpression(left : object.Object, index : object.Object) -> object.Object:
+    if left.type() == object.ARRAY_OBJ and index.type() == object.INTEGER_OBJ:
+        return evalArrayIndexExpression(left, index)
+    
+    if left.type() == object.HASH_OBJ:
+        return evalHashIndexExpression(left, index)
+    
+    return newError("index operator not supported: {}",format(left.type()))
+
+def evalArrayIndexExpression(array : object.Object, index : object.Object) -> object.Object:
+    idx = index.value
+    max = int(len(array.elements)-1)
+
+    if idx < 0 or idx > max:
+        return object.NULL
+    
+    return array.elements[idx]
+
+def evalHashLiteral(node : ast.HashLiteral, env : object.Environment) -> object.Object:
+    pairs = {}
+
+    for keyNode, valueNode in node.pairs.items():
+        key = Eval(keyNode, env)
+        if isError(key):
+            return key
+        
+        if not isinstance(key, object.Hashable):
+            return newError("unusable as hash key: {}".format(key.type()))
+        
+        value = Eval(valueNode, env)
+        if isError(value):
+            return value
+
+        hashed = key.hashKey()
+        pairs[hashed] = object.HashPair(key, value)
+    
+    return object.Hash(pairs)
+
+def evalHashIndexExpression(left : object.Object, index : object.Object) -> object.Object:
+    if not isinstance(index, object.Hashable):
+        return newError("unusable as hash key: {}".format(index.type()))
+    
+    if index.hashKey() in left.pairs:
+        return left.pairs[index.hashKey()].value
+    
+    return object.NULL

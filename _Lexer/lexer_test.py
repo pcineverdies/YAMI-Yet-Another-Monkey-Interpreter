@@ -26,6 +26,10 @@ class TestToken(unittest.TestCase):
 
             10 == 10;
             10 != 9;
+            "foobar"
+            "foo bar"
+            [1, 2];
+            {"foo" : "bar"}
         """
 
         expected = [
@@ -102,7 +106,20 @@ class TestToken(unittest.TestCase):
             newToken(NOT_EQ,       "!="),
             newToken(INT,          "9"),
             newToken(SEMICOLON,    ";"),
-            newToken(EOF,           "")
+            newToken(STRING,       "foobar"),
+            newToken(STRING,       "foo bar"),
+            newToken(LBRACKET,     "["),
+            newToken(INT,          "1"),
+            newToken(COMMA,        ","),
+            newToken(INT,          "2"),
+            newToken(RBRACKET,     "]"),
+            newToken(SEMICOLON,    ";"),
+            newToken(LBRACE,       "{"),
+            newToken(STRING,       "foo"),
+            newToken(COLON,        ":"),
+            newToken(STRING,      "bar"),
+            newToken(RBRACE,      "}"),
+            newToken(EOF,          "")
         ]
 
         l = Lexer(input)

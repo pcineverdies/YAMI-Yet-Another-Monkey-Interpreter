@@ -79,6 +79,18 @@ class Lexer():
 
         elif self.ch ==  ",":
             tok = token.newToken(token.COMMA, self.ch)
+        
+        elif self.ch == '"':
+            tok = token.newToken(token.STRING, self.readString())
+        
+        elif self.ch == "[":
+            tok = token.newToken(token.LBRACKET, self.ch)
+
+        elif self.ch == "]":
+            tok = token.newToken(token.RBRACKET, self.ch)
+        
+        elif self.ch == ":":
+            tok = token.newToken(token.COLON, self.ch)
 
         elif self.ch ==  0:
             tok = token.newToken(token.EOF, "")
@@ -120,3 +132,13 @@ class Lexer():
             return 0
         
         return self.input[self.readPosition]
+    
+    def readString(self) -> str:
+        position = self.position + 1
+
+        while True:
+            self.readChar()
+            if self.ch in ['"', 0]:
+                break
+        
+        return self.input[position: self.position]

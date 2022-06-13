@@ -8,6 +8,7 @@ SUM             = 3
 PRODUCT         = 4
 PREFIX          = 5
 CALL            = 6
+INDEX           = 7
 
 # Dictionary that associates each token type
 # to its priority
@@ -21,4 +22,5 @@ precedences = {
     token.SLASH     : PRODUCT,
     token.ASTERISK  : PRODUCT,
     token.LPAREN    : CALL,
+    token.LBRACKET  : INDEX,
 }

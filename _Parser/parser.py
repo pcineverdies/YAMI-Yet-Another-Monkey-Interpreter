@@ -23,6 +23,9 @@ class Parser:
         self.registerPrefix(token.LPAREN,   self.parseGroupedExpression)    # ( -> grouped
         self.registerPrefix(token.IF,       self.parseIfExpression)         # if
         self.registerPrefix(token.FUNCTION, self.parseFunctionLiteral)      # fn
+        self.registerPrefix(token.STRING,   self.parseStringLiteral)        # string
+        self.registerPrefix(token.LBRACKET, self.parseArrayLiteral)         # [ prefix
+        self.registerPrefix(token.LBRACE,   self.parseHashLiteral)          # { prefix
         
         # infix token functions
         self.registerInfix(token.PLUS,      self.parseInfixExpression)      # +
@@ -34,6 +37,7 @@ class Parser:
         self.registerInfix(token.LT,        self.parseInfixExpression)      # <
         self.registerInfix(token.GT,        self.parseInfixExpression)      # >
         self.registerInfix(token.LPAREN,    self.parseCallExpression)       # ( -> call
+        self.registerInfix(token.LBRACKET,  self.parseIndexExpression)      # [ -> index
 
         # set the value of both curToken and peekToken
         self.nextToken()
@@ -331,14 +335,14 @@ class Parser:
     # parse call expression
     def parseCallExpression(self, function : ast.Expression) -> ast.CallExpression:
         exp = ast.CallExpression(self.curToken, function)
-        exp.arguments = self.parseCallArguments()
+        exp.arguments = self.parseExpressionList(')')
         return exp
     
     # parse call arguments
-    def parseCallArguments(self) -> List[ast.Expression]:
+    def parseExpressionList(self, end : str) -> List[ast.Expression]:
         args = []
 
-        if self.peekTokenIs(token.RPAREN):
+        if self.peekTokenIs(end):
             self.nextToken()
             return args
         
@@ -351,7 +355,50 @@ class Parser:
             self.nextToken()
             args.append(self.parseExpression(LOWEST))
         
-        if not self.expectPeek(token.RPAREN):
+        if not self.expectPeek(end):
             return None
         
         return args
+    
+    def parseStringLiteral(self) -> ast.Expression:
+        return ast.StringLiteral(self.curToken, self.curToken.literal)
+    
+    def parseArrayLiteral(self) -> ast.Expression:
+        array = ast.ArrayLiteral(self.curToken)
+        array.elements = self.parseExpressionList(token.RBRACKET)
+        return array
+    
+    def parseIndexExpression(self, left : ast.Expression) -> ast.Expression:
+        exp = ast.IndexExpression(self.curToken, left)
+
+        self.nextToken()
+
+        exp.index = self.parseExpression(LOWEST)
+        if not self.expectPeek(token.RBRACKET):
+            return None
+        return exp
+    
+    def parseHashLiteral(self) -> ast.Expression:
+        hash = ast.HashLiteral(self.curToken)
+    
+        hash.pairs = {}
+
+        while not self.peekTokenIs(token.RBRACE):
+            self.nextToken()
+            key = self.parseExpression(LOWEST)
+
+            if not self.expectPeek(token.COLON):
+                return None
+            
+            self.nextToken()
+
+            value = self.parseExpression(LOWEST)
+            hash.pairs[key] = value
+        
+            if not self.peekTokenIs(token.RBRACE) and not self.expectPeek(token.COMMA):
+                return None
+        
+        if not self.expectPeek(token.RBRACE):
+            return None
+        
+        return hash
