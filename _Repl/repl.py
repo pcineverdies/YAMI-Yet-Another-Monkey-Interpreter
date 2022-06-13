@@ -1,15 +1,16 @@
 import _Lexer.lexer as lexer
-import _Token.token as token
 import _Parser.parser as parser
+import _Object.object as object
 import _Evaluator.evaluator as evaluator
 
 PROMPT = ">> "
 
 def start():
 
+    env = object.Environment()
+
     while True:
         line = input(PROMPT)
-
         l = lexer.Lexer(line)   
         p = parser.Parser(l)
 
@@ -17,9 +18,10 @@ def start():
         if len(p.getErrors()) != 0:
             printParserErrors(p.getErrors())
         
-        evaluated = evaluator.Eval(program)
+        evaluated = evaluator.Eval(program, env)
         if evaluated is not None:
             print(evaluated.insepct())
+
 
 def printParserErrors(errors):
     for msg in errors:
