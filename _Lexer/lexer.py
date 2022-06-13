@@ -2,7 +2,7 @@ from curses.ascii import isalpha, isdigit
 import _Token.token as token
 
 class Lexer():
-    def __init__(self, input):
+    def __init__(self, input : str):
         self.input          = input
         self.position       = 0
         self.readPosition   = 0
@@ -20,7 +20,7 @@ class Lexer():
         self.readPosition = self.readPosition + 1
     
     # Get next tokne
-    def nextToken(self):
+    def nextToken(self) -> token.Token:
         tok = tok = token.newToken(token.ILLEGAL, self.ch)
 
         self.skipWhitespace()
@@ -96,14 +96,14 @@ class Lexer():
         self.readChar()
         return tok
 
-    def isLetter(self, ch):
+    def isLetter(self, ch : str) -> bool:
         return isalpha(ch) or ch == '_'
     
-    def isDigit(self, ch):
+    def isDigit(self, ch : str) -> bool:
         return isdigit(ch)
     
     # read a token until it satisfies verifyFunction (both for literals and digits)
-    def readToken(self, verifyFunction):
+    def readToken(self, verifyFunction : callable) -> str:
         position = self.position
         while verifyFunction(self.ch):
             self.readChar()
@@ -115,7 +115,7 @@ class Lexer():
             self.readChar()
 
     # get next character
-    def peekChar(self):
+    def peekChar(self) -> str:
         if self.readPosition >= len(self.input):
             return 0
         

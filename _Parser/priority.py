@@ -1,6 +1,6 @@
-from lib2to3.pgen2.token import LESS
 import _Token.token as token
 
+# List of priorities 
 LOWEST          = 0
 EQUALS          = 1 
 LESSGREATER     = 2
@@ -9,6 +9,8 @@ PRODUCT         = 4
 PREFIX          = 5
 CALL            = 6
 
+# Dictionary that associates each token type
+# to its priority
 precedences = {
     token.EQ        : EQUALS,
     token.NOT_EQ    : EQUALS,

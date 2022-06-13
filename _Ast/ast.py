@@ -1,32 +1,36 @@
-from ast import operator
+from typing import List
 import _Token.token as token
 
+# Abstract class for a Node in AST
 class Node:
-    def tokenLiteral(self):
+    def tokenLiteral(self) -> str:
         pass
-    def string(self):
+    def string(self) -> str:
         pass
 
+# Abstract class for a Statement in AST
 class Statement(Node):
     def statementNode(self):
         pass
 
+# Abstract class for an Expression in AST
 class Expression(Node):
     def expressionNode(self):
         pass
 
+# Program as a collection of statements
 class Program:
     def __init__(self):
         self.statements = []
     
-    def tokenLiteral(self):
+    def tokenLiteral(self) -> str:
         if len(self.statements) > 0:
             return self.statements[0].tokenLiteral()
         
         else:
             return ""
     
-    def string(self):
+    def string(self) -> str:
         out = ""
 
         for s in self.statements:
@@ -34,22 +38,25 @@ class Program:
         
         return out
 
+# Identifier node
 class Identifier(Expression):
-    def __init__(self, token, value):
+    def __init__(self, token : token.Token, value):
         self.token = token
         self.value = value
     
     def expressionNode(self):
         return super().expressionNode()
     
-    def tokenLiteral(self):
+    def tokenLiteral(self) -> str:
         return self.token.literal
     
-    def string(self):
+    def string(self) -> str:
         return self.value
 
+# LetStatement node
 class LetStatement(Statement):
-    def __init__(self, token, name, value):
+    def __init__(self, token : token.Token, name : Identifier = None, 
+                 value : Expression = None):
         self.token = token
         self.name = name
         self.value = value
@@ -57,10 +64,10 @@ class LetStatement(Statement):
     def statementNode(self):
         return super().statementNode()
     
-    def tokenLiteral(self):
+    def tokenLiteral(self) -> str:
         return self.token.literal
     
-    def string(self):
+    def string(self) -> str:
         msg = ""
         msg += self.tokenLiteral() + " "
         msg += self.name.string() + " = "
@@ -72,18 +79,20 @@ class LetStatement(Statement):
 
         return msg
 
+# ReturnStatement node
 class ReturnStatement(Statement):
-    def __init__(self, token, value):
+    def __init__(self, token : token.Token = None, 
+                 value : Expression = None):
         self.token = token
         self.value = value
         
     def statementNode(self):
         return super().statementNode()
     
-    def tokenLiteral(self):
+    def tokenLiteral(self) -> str:
         return self.token.literal
     
-    def string(self):
+    def string(self) -> str:
         msg = ""
         msg += self.tokenLiteral() + " "
 
@@ -94,39 +103,45 @@ class ReturnStatement(Statement):
 
         return msg
 
+# ExpressionStatement node
 class ExpressionStatement(Statement):
-    def __init__(self, token, expression):
+    def __init__(self, token : token.Token, 
+                 expression : Expression = None):
         self.token = token
         self.expression = expression
     
     def statementNode(self):
         return super().statementNode()
     
-    def tokenLiteral(self):
+    def tokenLiteral(self) -> str:
         return self.token.literal
     
-    def string(self):
+    def string(self) -> str:
         if self.expression != None:
             return self.expression.string() + ";"
         
         return ""
 
+# IntegerLiteral node
 class IntegerLiteral(Expression):
-    def __init__(self, token, value):
+    def __init__(self, token : token.Token, 
+                 value : int = None):
         self.token = token
         self.value = value
     
     def expressionNode(self):
         return super().expressionNode()
     
-    def tokenLiteral(self):
+    def tokenLiteral(self) -> str:
         return self.token.literal
 
-    def string(self):
+    def string(self) -> str:
         return self.token.literal
 
+# PrefixExpression node
 class PrefixExpression(Expression):
-    def __init__(self, token, operator, right):
+    def __init__(self, token : token.Token, 
+                 operator : str = None, right : Expression = None):
         self.token = token
         self.operator = operator
         self.right = right
@@ -134,14 +149,16 @@ class PrefixExpression(Expression):
     def expressionNode(self):
         return super().expressionNode()
     
-    def tokenLiteral(self):
+    def tokenLiteral(self) -> str:
         return self.token.literal
     
-    def string(self):
+    def string(self) -> str:
         return "(" + self.operator + self.right.string() + ")"
 
+# InfixExpression node
 class InfixExpression(Expression):
-    def __init__(self, token, left, operator, right):
+    def __init__(self, token : token.Token, left : Expression = None, 
+                 operator : str = None, right : Expression = None):
         self.token = token
         self.left = left
         self.operator = operator
@@ -150,55 +167,38 @@ class InfixExpression(Expression):
     def expressionNode(self):
         return super().expressionNode()
     
-    def tokenLiteral(self):
+    def tokenLiteral(self) -> str:
         return self.token.literal
     
-    def string(self):
+    def string(self) -> str:
         return "(" + self.left.string() + " " + self.operator + " " + self.right.string() + ")"
     
+# Boolean node
 class Boolean(Expression):
-    def __init__(self, token, value):
+    def __init__(self, token : token.Token, 
+                 value : bool = None):
         self.token = token
         self.value = value
         
     def expressionNode(self):
         return super().expressionNode()
     
-    def tokenLiteral(self):
+    def tokenLiteral(self) -> str:
         return self.token.literal
     
-    def string(self):
+    def string(self) -> str:
         return self.token.literal
-    
-class IfExpression(Expression):
-    def __init__(self, token, condition, consequence, alternative):
-        self.token = token
-        self.condition = condition
-        self.consequence = consequence
-        self.alternative = alternative
-    
-    def expressionNode(self):
-        return super().expressionNode()
-    
-    def tokenLiteral(self):
-        return self.token.litearl
-    
-    def string(self):
-        out = "if" + self.condition.string() + " " + self.consequence.string()
-        if self.alternative is not None:
-            out += "else " + self.alternative.string()
-        
-        return out
-    
+
+# BlockStatement node (colletion of statements)
 class BlockStatement(Statement):
-    def __init__(self, token, statements):
+    def __init__(self, token, statements = None):
         self.token = token
         self.statements = statements
     
-    def tokenLiteral(self):
+    def tokenLiteral(self) -> str:
         return self.token.literal
     
-    def string(self):
+    def string(self) -> str:
         out = "{"
         stmts = []
         for elem in self.statements:
@@ -207,8 +207,32 @@ class BlockStatement(Statement):
         out += "}"
         return out 
     
+# IfExpression node
+class IfExpression(Expression):
+    def __init__(self, token : token.Token, condition : Expression = None, 
+                 consequence : BlockStatement = None, alternative : BlockStatement = None):
+        self.token = token
+        self.condition = condition
+        self.consequence = consequence
+        self.alternative = alternative
+    
+    def expressionNode(self):
+        return super().expressionNode()
+    
+    def tokenLiteral(self) -> str:
+        return self.token.litearl
+    
+    def string(self) -> str:
+        out = "if" + self.condition.string() + " " + self.consequence.string()
+        if self.alternative is not None:
+            out += "else " + self.alternative.string()
+        
+        return out
+
+# FunctionLiteral node
 class FunctionLiteral(Expression):
-    def __init__(self, token, parameters, body):
+    def __init__(self, token : token.Token, 
+                 parameters : List[Identifier] = None, body : BlockStatement = None):
         self.token = token
         self.parameters = parameters
         self.body = body
@@ -216,10 +240,10 @@ class FunctionLiteral(Expression):
     def expressionNode(self):
         return super().expressionNode()
     
-    def tokenLiteral(self):
+    def tokenLiteral(self) -> str:
         return self.token.literal
     
-    def string(self):
+    def string(self) -> str:
         params = []
         for p in self.parameters:
             params.append(p.string())
@@ -229,8 +253,10 @@ class FunctionLiteral(Expression):
 
         return out
     
+# CallExpression node
 class CallExpression(Expression):
-    def __init__(self, token, function, arguments):
+    def __init__(self, token : token.Token, 
+                 function : Expression = None, arguments : List[Expression] = None):
         self.token = token
         self.function = function
         self.arguments = arguments
@@ -238,10 +264,10 @@ class CallExpression(Expression):
     def expressionNode(self):
         return super().expressionNode()
     
-    def tokenLiteral(self):
+    def tokenLiteral(self) -> str:
         return self.token.literal
     
-    def string(self):
+    def string(self) -> str:
         args = []
         for elem in self.arguments:
             args.append(elem.string())

@@ -1,6 +1,5 @@
 import array
 from dataclasses import dataclass
-from turtle import st
 from _Lexer.lexer import *
 from _Ast.ast import *
 from _Parser.parser import *
@@ -174,7 +173,7 @@ class TestParser(unittest.TestCase):
             exp = program.statements[0].expression
             self.infixExpression(exp, elem.leftValue, elem.operator, elem.rightValue)
 
-    def testOperatorPrecedenceParsing(self):
+    def tstOperatorPrecedenceParsing(self):
         @dataclass
         class TestCase:
             input:      string

@@ -19,11 +19,11 @@ keywords = {
     "return": RETURN
 }
 
-def newToken(tokenType, ch):
+def newToken(tokenType : str, ch : str) -> Token:
     return Token(tokenType, ch)
 
 # Distinguish keywords from identifiers 
-def lookupIdent(ident):
+def lookupIdent(ident : str) -> str:
     if ident in keywords:
         return keywords[ident]
     
