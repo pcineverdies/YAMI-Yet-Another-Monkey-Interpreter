@@ -1,7 +1,3 @@
-from ast import Eq
-from lib2to3.pgen2.token import COLON
-
-
 ILLEGAL     =   "ILLEGAL"
 EOF         =   "EOF"
 
@@ -29,6 +25,10 @@ FALSE       =   "FALSE"
 IF          =   "IF"
 ELSE        =   "ELSE"
 RETURN      =   "RETURN"
+WHILE       =   "WHILE"
+BREAK       =   "BREAK"
+CONTINUE    =   "CONTINUE"
+FOR         =   "FOR"
 
 ASSIGN      =   "="
 PLUS        =   "+"
@@ -36,10 +36,15 @@ MINUS       =   "-"
 BANG        =   "!"
 ASTERISK    =   "*"
 SLASH       =   "/"
+MODULUS     =   "%"
 
 LT          =   "<"
 GT          =   ">"
+LTE         =   "<="
+GTE         =   ">="
 EQ          =   "=="
 NOT_EQ      =   "!="
+AND         =   "&&"
+OR         =    "||"
 
 STRING      =   "STRING"

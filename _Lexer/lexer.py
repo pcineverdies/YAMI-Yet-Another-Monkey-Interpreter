@@ -25,6 +25,22 @@ class Lexer():
 
         self.skipWhitespace()
 
+        # inline comments
+        if self.ch == "/" and self.peekChar() == "/":
+            while self.ch not in ['\n', 0]:
+                self.readChar()
+            self.skipWhitespace()
+
+        # multiline comments
+        if self.ch == "/" and self.peekChar() == "*":
+            while True:
+                self.readChar()
+                if (self.ch == "*" and self.peekChar() == "/") or self.ch == 0:
+                    break
+            self.readChar()
+            self.readChar()
+            self.skipWhitespace()
+
         if self.ch == "=":
             if self.peekChar() == "=":
                 ch = self.ch
@@ -57,10 +73,20 @@ class Lexer():
             tok = token.newToken(token.ASTERISK, self.ch) 
 
         if self.ch == "<":
-            tok = token.newToken(token.LT, self.ch) 
+            if self.peekChar() == "=":
+                ch = self.ch
+                self.readChar()
+                tok = token.newToken(token.LTE, ch + self.ch)
+            else:
+                tok = token.newToken(token.LT, self.ch)
 
         if self.ch == ">":
-            tok = token.newToken(token.GT, self.ch) 
+            if self.peekChar() == "=":
+                ch = self.ch
+                self.readChar()
+                tok = token.newToken(token.GTE, ch + self.ch)
+            else:
+                tok = token.newToken(token.GT, self.ch)
 
         if self.ch == "-":
             tok = token.newToken(token.MINUS, self.ch)
@@ -91,6 +117,19 @@ class Lexer():
         
         elif self.ch == ":":
             tok = token.newToken(token.COLON, self.ch)
+
+        elif self.ch == "%":
+            tok = token.newToken(token.MODULUS, self.ch)
+        
+        elif self.ch == "&" and self.peekChar() == "&":
+            ch = self.ch
+            self.readChar()
+            tok = token.newToken(token.AND, ch + self.ch)
+
+        elif self.ch == "|" and self.peekChar() == "|":
+            ch = self.ch
+            self.readChar()
+            tok = token.newToken(token.OR, ch + self.ch)
 
         elif self.ch ==  0:
             tok = token.newToken(token.EOF, "")

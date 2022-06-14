@@ -21,6 +21,8 @@ def start():
         evaluated = evaluator.Eval(program, env)
         if evaluated is not None:
             print(evaluated.inspect())
+            if evaluated.type() == object.EXIT_OBJ:
+                return
 
 
 def printParserErrors(errors):

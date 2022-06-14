@@ -2,7 +2,8 @@ from typing import List
 import _Object.object as object
 from _Evaluator.utils import newError
 
-def _len(*args : List[object.Object]):
+# get let of something which has a length: str or array
+def _len(*args : List[object.Object]) -> object.Object:
     if len(args) != 1:
         return newError("wrong number of arguments. got={}, want=1", len(args))
     
@@ -14,7 +15,8 @@ def _len(*args : List[object.Object]):
     
     return newError("argument to `len` not supported, got {}", args[0].type())
 
-def _first(*args : List[object.Object]):
+# get the first element of an array
+def _first(*args : List[object.Object]) -> object.Object:
     if (len(args) != 1):
         return newError("wrong number of arguments. got={}, want=1", len(args))
     
@@ -23,7 +25,8 @@ def _first(*args : List[object.Object]):
     
     return object.NULL if len(args[0].elements) == 0 else args[0].elements[0]
 
-def _last(*args : List[object.Object]):
+# get the last element of an array
+def _last(*args : List[object.Object]) -> object.Object:
     if (len(args) != 1):
         return newError("wrong number of arguments. got={}, want=1", len(args))
     
@@ -32,7 +35,8 @@ def _last(*args : List[object.Object]):
     
     return object.NULL if len(args[0].elements) == 0 else args[0].elements[len(args[0].elements)-1]
 
-def _rest(*args : List[object.Object]):
+# get an array without the first one
+def _rest(*args : List[object.Object]) -> object.Object:
     if (len(args) != 1):
         return newError("wrong number of arguments. got={}, want=1", len(args))
     
@@ -44,27 +48,64 @@ def _rest(*args : List[object.Object]):
     
     return object.Array(args[0].elements[1:])
 
-def _push(*args : List[object.Object]):
+# append an element to an array
+def _push(*args : List[object.Object]) -> object.Object:
     if (len(args) != 2):
         return newError("wrong number of arguments. got={}, want=1", len(args))
     
     if args[0].type() != object.ARRAY_OBJ:
-        return newError("argument to `rest` must be ARRAY, got {}", args[0].type())
+        return newError("argument to `push` must be ARRAY, got {}", args[0].type())
     
     newElements = args[0].elements
     newElements.append(args[1])
     return object.Array(newElements)
 
-def _print(*args : List[object.Object]):
-    for elem in args:
-        print(elem.inspect())
+# update the value of array[index]
+def _update(*args : List[object.Object]) -> object.Object:
+    if (len(args) != 3):
+        return newError("wrong number of arguments. got={}, want=1", len(args))
+    
+    if args[0].type() != object.ARRAY_OBJ:
+        return newError("first argument to `update` must be ARRAY, got {}", args[0].type())
+    
+    if args[1].type() != object.INTEGER_OBJ:
+        return newError("second argument to `update` must be INTEGER, got {}", args[0].type())
+
+    if args[1].value < 0 or args[1].value >= len(args[0].elements):
+        return newError("index out of range")
+    
+    args[0].elements[args[1].value] = args[2]
+
     return object.NULL
 
+# exit
+def _exit(*args : List[object.Object]) -> object.Object:
+    return object.EXIT
+
+# print
+def _print(*args : List[object.Object]) -> object.Object:
+    for elem in args:
+        if elem.inspect() == "\\n":
+            print()
+        else:
+            print(elem.inspect(),end='')
+    return object.NULL
+
+# get a string out of an object
+def _str(*args : List[object.Object]) -> object.Object:
+    if (len(args) != 1):
+        return newError("wrong number of arguments. got={}, want=1", len(args))
+    
+    return object.String(str(args[0].inspect()))
+
 builtins = {
-    "len" : object.Builtin(_len),
-    "first" : object.Builtin(_first),
-    "last" : object.Builtin(_last),
-    "rest" : object.Builtin(_rest),
-    "push" : object.Builtin(_push),
-    "print" : object.Builtin(_print),
+    "len"    : object.Builtin(_len),
+    "first"  : object.Builtin(_first),
+    "last"   : object.Builtin(_last),
+    "rest"   : object.Builtin(_rest),
+    "push"   : object.Builtin(_push),
+    "print"  : object.Builtin(_print),
+    "update" : object.Builtin(_update),
+    "exit"   : object.Builtin(_exit),
+    "str"    : object.Builtin(_str),
 }

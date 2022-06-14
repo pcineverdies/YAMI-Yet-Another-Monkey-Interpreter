@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from os import O_NONBLOCK
 import unittest
 import _Lexer.lexer as lexer
 import _Parser.parser as parser
@@ -29,6 +28,7 @@ class TestEvaluator(unittest.TestCase):
             TestCase("3 * 3 * 3 + 10", 37),
             TestCase("3 * (3 * 3) + 10", 37),
             TestCase("(5 + 10 * 2 + 15 / 3) * 2 + -10", 50),
+            TestCase("18 % 5", 3),
         ]
 
         for elem in tests: 
@@ -58,9 +58,15 @@ class TestEvaluator(unittest.TestCase):
             TestCase("true != false", True),
             TestCase("false != true", True),
             TestCase("(1 < 2) == true", True),
+            TestCase("(4 <= 2) == true", False),
+            TestCase("(1 <= 1) == true", True),
+            TestCase("1 >= 18", False),
+            TestCase("1 >= 1", True),
             TestCase("(1 < 2) == false", False),
             TestCase("(1 > 2) == true", False),
             TestCase("(1 > 2) == false", True),
+            TestCase("(1 < 2) and false", False),
+            TestCase("(1 < 2) and true", True)
         ]
 
         for elem in tests: 
@@ -132,7 +138,8 @@ class TestEvaluator(unittest.TestCase):
             TestCase("return 10; 9", 10),
             TestCase("return 2 * 9; 4", 18),
             TestCase("9; return 2 * 4; 9", 8),
-            TestCase("if (10 > 1) { if (10 > 1) { return 10; } return 1; }", 10)
+            TestCase("if (10 > 1) { if (10 > 1) { return 10; } return 1; }", 10),
+            TestCase("if (10 > 1) { if (10 > 1) { return; } return 1; }", 0),
         ]
 
         for elem in tests:
@@ -154,7 +161,8 @@ class TestEvaluator(unittest.TestCase):
             TestCase("if (10 > 1) { true + false; }", "unknown operator: BOOLEAN + BOOLEAN"),
             TestCase("foobar", "identifier not found: foobar"),
             TestCase('"A" - "B"', "unknown operator: STRING - STRING"),
-            TestCase('{"name":"Monkey"}[fn(x){x}];', "unusable as hash key: FUNCTION")
+            TestCase('{"name":"Monkey"}[fn(x){x}];', "unusable as hash key: FUNCTION"),
+            TestCase('let a = 10; a = 20; b = 30;', "Can't assign value before declaration")
         ]
 
         for elem in tests:
@@ -357,6 +365,115 @@ class TestEvaluator(unittest.TestCase):
             TestCase('{5: 5}[5]', 5),
             TestCase('{true: 5}[true]', 5),
             TestCase('{false: 5}[false]', 5),
+        ]
+
+        for elem in tests:
+            evaluated = self.eval(elem.input)
+            if isinstance(elem.expected, int):
+                self.typeObject(evaluated, elem.expected, object.Integer)
+            else:
+                self.nullObject(evaluated)
+
+    def testWhileExpression(self):
+        @dataclass
+        class TestCase:
+            input : str
+            expected : any
+        
+        tests = [ 
+            TestCase("let a = 0; while (a < 10) { let a = a + 1; }; a;", 10),
+        ]
+
+        for elem in tests:
+            evaluated = self.eval(elem.input)
+            if isinstance(elem.expected, int):
+                self.typeObject(evaluated, elem.expected, object.Integer)
+            else:
+                self.nullObject(evaluated)
+    
+    def testAssignStatements(self):
+        @dataclass
+        class TestCase:
+            input : str
+            expected : int
+        
+        tests = [ 
+            TestCase("let a = 5; a = 10; a;", 10),
+            TestCase("let a = 5 * 5; a = 20; a;", 20),
+            TestCase("let a = 5; let b = 10; b = a; b;", 5),
+        ]
+
+        for elem in tests:
+            self.typeObject(self.eval(elem.input), elem.expected, object.Integer)
+
+    def testBreakContinueStatements(self):
+        @dataclass
+        class TestCase:
+            input : str
+            expected : int
+        
+        tests = [ 
+            TestCase("""
+                let a = 5;
+                let b = 10;
+                while(true){
+                    while(true) {
+                        if (b == 20){
+                            break;
+                        }
+                        else{
+                            b = b + 1;
+                        }
+                    }
+                    a = a + 1;
+                    if (a == 10) {
+                        break;
+                    }
+                }
+                a+b; """, 30),
+            TestCase("""
+                let num = 0;
+                let result = 0;
+
+                while(num != 100) {
+                    num = num + 1;
+                    if(num % 2 == 1){
+                        continue;
+                    }
+                    result = result + 1;
+                }
+
+                result;
+            """, 50),
+        ]
+
+        for elem in tests:
+            self.typeObject(self.eval(elem.input), elem.expected, object.Integer)
+
+    def testForExpression(self):
+        @dataclass
+        class TestCase:
+            input : str
+            expected : any
+        
+        tests = [ 
+            TestCase("""
+                let result = 0;
+                for(let i = 0; i < 10; i = i + 1){
+                    result = result + i;
+                }
+                result;
+            """, 45),
+            TestCase("""
+                let a = 30;
+                for(;a < 40; a = a + 1){}
+                a;
+            """, 40),
+            TestCase("""
+                let a = 50;
+                for(let a = 1;a < 40; a = a + 1){}
+                a;
+            """, 50),
         ]
 
         for elem in tests:

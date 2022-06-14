@@ -14,7 +14,7 @@ class TestToken(unittest.TestCase):
 
             let result = add(five, ten);
         
-            !-/*5;
+            !-*/5;
             5 < 10 > 5;
 
             if (5 < 10) {
@@ -30,6 +30,18 @@ class TestToken(unittest.TestCase):
             "foo bar"
             [1, 2];
             {"foo" : "bar"}
+            4 <= 5 >= 5 || 5 && 5 and 5 or 5 % 5;
+
+            while (a < 5){
+                let a = a + 1;
+                break;
+                continue;
+            }
+
+            for(;;){
+
+            }
+
         """
 
         expected = [
@@ -71,8 +83,8 @@ class TestToken(unittest.TestCase):
             newToken(SEMICOLON,    ";"),
             newToken(BANG,         "!"),
             newToken(MINUS,        "-"),
-            newToken(SLASH,        "/"),
             newToken(ASTERISK,     "*"),
+            newToken(SLASH,        "/"),
             newToken(INT,          "5"),
             newToken(SEMICOLON,    ";"),
             newToken(INT,          "5"),
@@ -117,8 +129,50 @@ class TestToken(unittest.TestCase):
             newToken(LBRACE,       "{"),
             newToken(STRING,       "foo"),
             newToken(COLON,        ":"),
-            newToken(STRING,      "bar"),
-            newToken(RBRACE,      "}"),
+            newToken(STRING,       "bar"),
+            newToken(RBRACE,       "}"),
+            newToken(INT,          "4"),
+            newToken(LTE,          "<="),
+            newToken(INT,          "5"),
+            newToken(GTE,          ">="),
+            newToken(INT,          "5"),
+            newToken(OR,           "||"),
+            newToken(INT,          "5"),
+            newToken(AND,          "&&"),
+            newToken(INT,          "5"),
+            newToken(AND,          "and"),
+            newToken(INT,          "5"),
+            newToken(OR,           "or"),
+            newToken(INT,          "5"),
+            newToken(MODULUS,      "%"),
+            newToken(INT,          "5"),
+            newToken(SEMICOLON,    ";"),
+            newToken(WHILE,        "while"),
+            newToken(LPAREN,       "("),
+            newToken(IDENT,        "a"),
+            newToken(LT,           "<"),
+            newToken(INT,          "5"),
+            newToken(RPAREN,       ")"),
+            newToken(LBRACE,       "{"),
+            newToken(LET,          "let"),
+            newToken(IDENT,        "a"),
+            newToken(ASSIGN,       "="),
+            newToken(IDENT,        "a"),
+            newToken(PLUS,         "+"),
+            newToken(INT,          "1"),
+            newToken(SEMICOLON,    ";"),
+            newToken(BREAK,        "break"),
+            newToken(SEMICOLON,    ";"),
+            newToken(CONTINUE,     "continue"),
+            newToken(SEMICOLON,    ";"),
+            newToken(RBRACE,       "}"),
+            newToken(FOR,          "for"),
+            newToken(LPAREN,       "("),
+            newToken(SEMICOLON,    ";"),
+            newToken(SEMICOLON,    ";"),
+            newToken(RPAREN,       ")"),
+            newToken(LBRACE,       "{"),
+            newToken(RBRACE,       "}"),
             newToken(EOF,          "")
         ]
 
@@ -126,5 +180,5 @@ class TestToken(unittest.TestCase):
 
         for item in expected:
             tok = l.nextToken()
-            self.assertEqual(item.type, tok.type)
-            self.assertEqual(item.literal, tok.literal)
+            self.assertEqual(item.type, tok.type, "expected {}, got {}".format(item.type, tok.type))
+            self.assertEqual(item.literal, tok.literal, "expected {}, got {}".format(item.literal, tok.literal))

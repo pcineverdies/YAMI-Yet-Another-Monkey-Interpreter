@@ -1,3 +1,4 @@
+from cmath import exp
 from typing import List
 import _Ast.ast as ast
 import _Lexer.lexer as lexer
@@ -22,6 +23,8 @@ class Parser:
         self.registerPrefix(token.FALSE,    self.parseBoolean)              # false
         self.registerPrefix(token.LPAREN,   self.parseGroupedExpression)    # ( -> grouped
         self.registerPrefix(token.IF,       self.parseIfExpression)         # if
+        self.registerPrefix(token.WHILE,    self.parseWhileExpression)      # while
+        self.registerPrefix(token.FOR,      self.parseForExpression)        # for
         self.registerPrefix(token.FUNCTION, self.parseFunctionLiteral)      # fn
         self.registerPrefix(token.STRING,   self.parseStringLiteral)        # string
         self.registerPrefix(token.LBRACKET, self.parseArrayLiteral)         # [ prefix
@@ -31,11 +34,16 @@ class Parser:
         self.registerInfix(token.PLUS,      self.parseInfixExpression)      # +
         self.registerInfix(token.MINUS,     self.parseInfixExpression)      # -
         self.registerInfix(token.SLASH,     self.parseInfixExpression)      # /
+        self.registerInfix(token.MODULUS,   self.parseInfixExpression)      # %
         self.registerInfix(token.ASTERISK,  self.parseInfixExpression)      # *
         self.registerInfix(token.EQ,        self.parseInfixExpression)      # =
         self.registerInfix(token.NOT_EQ,    self.parseInfixExpression)      # !=
         self.registerInfix(token.LT,        self.parseInfixExpression)      # <
         self.registerInfix(token.GT,        self.parseInfixExpression)      # >
+        self.registerInfix(token.GTE,       self.parseInfixExpression)      # >=
+        self.registerInfix(token.LTE,       self.parseInfixExpression)      # <=
+        self.registerInfix(token.AND,       self.parseInfixExpression)      # and, &&
+        self.registerInfix(token.OR,        self.parseInfixExpression)      # or, ||
         self.registerInfix(token.LPAREN,    self.parseCallExpression)       # ( -> call
         self.registerInfix(token.LBRACKET,  self.parseIndexExpression)      # [ -> index
 
@@ -71,6 +79,10 @@ class Parser:
             return self.parseLetStatement()
         elif self.curToken.type == token.RETURN:
             return self.parseReturnStatement()
+        elif self.curToken.type == token.IDENT and self.peekToken.type == token.ASSIGN:
+            return self.parseAssignStatement()
+        elif self.curToken.type == token.BREAK or self.curToken.type == token.CONTINUE:
+            return self.parseBreakContinueStatement()
         else:
             return self.parseExpressionStatement()
     
@@ -103,6 +115,11 @@ class Parser:
         stmt = ast.ReturnStatement(self.curToken)
 
         self.nextToken()
+
+        if self.curTokenIs(token.SEMICOLON):
+            stmt.value = None
+            return stmt
+
         # parse following expression
         stmt.value = self.parseExpression(LOWEST)
 
@@ -402,3 +419,105 @@ class Parser:
             return None
         
         return hash
+    
+    def parseWhileExpression(self) -> ast.Expression:
+        expression = ast.WhileExpression(self.curToken)
+
+        # we need a ( after the while token
+        if not self.expectPeek(token.LPAREN):
+            return None
+        # cur token is (
+        self.nextToken()
+        # parse condition
+        expression.condition = self.parseExpression(LOWEST)
+
+        # we need a ) after the condition
+        if not self.expectPeek(token.RPAREN):
+            return None
+        # we need a { after )
+        if not self.expectPeek(token.LBRACE):
+            return None
+        
+        # parse the block of statements
+        expression.block = self.parseBlockStatement()
+        return expression
+
+    # parse assignment statement
+    def parseAssignStatement(self) -> ast.LetStatement:
+        stmt = ast.AssignStatement(token.newToken(token.ASSIGN, "="))
+
+        # if peek token is not an identifier, return None
+        if not self.curTokenIs(token.IDENT):
+            return None
+        
+        # get the identifier
+        stmt.name = ast.Identifier(self.curToken, self.curToken.literal)
+
+        # if peek token is not an assing, return None
+        if not self.expectPeek(token.ASSIGN):
+            return None 
+        
+        self.nextToken()
+        # parse following expression
+        stmt.value = self.parseExpression(LOWEST)
+
+        if self.peekTokenIs(token.SEMICOLON):
+            self.nextToken()
+        
+        return stmt
+    
+    def parseBreakContinueStatement(self) -> ast.Statement:
+        stmt = None
+        if self.curTokenIs(token.BREAK):
+            stmt = ast.BreakStatement()
+        if self.curTokenIs(token.CONTINUE):
+            stmt = ast.ContinueStatement()
+        
+        if stmt is None:
+            return None
+
+        # if there's a semicolone, go over it
+        if self.peekTokenIs(token.SEMICOLON):
+            self.nextToken()
+        
+        return stmt
+
+    def parseForExpression(self) -> ast.Expression:
+        expression = ast.ForExpression(self.curToken)
+
+        # we need a ( after the for token
+        if not self.expectPeek(token.LPAREN):
+            return None
+        # cur token is (
+        self.nextToken()
+
+        # if curtoken is not ;, there is an initial statement
+        if not self.curTokenIs(token.SEMICOLON):
+            # initial statement must me a let one
+            if self.curTokenIs(token.LET):
+                expression.initial = self.parseStatement()
+            else:
+                return None
+
+        self.nextToken()
+        # if curToken is not ;, there is a condition statement
+        if not self.curTokenIs(token.SEMICOLON):
+            expression.condition = self.parseStatement()
+            
+        self.nextToken()
+        # if curToken is not ), there is a condition statement
+        if not self.curTokenIs(token.RPAREN):
+            expression.update = self.parseStatement()
+            self.nextToken()
+        
+        # we need a )
+        if not self.curTokenIs(token.RPAREN):
+            return None
+        # we need a {
+        if not self.expectPeek(token.LBRACE):
+            return None
+
+        # parse the block
+        expression.block = self.parseBlockStatement()
+
+        return expression      

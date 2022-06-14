@@ -56,8 +56,17 @@ def Eval(node : ast.Node, env : object.Environment) -> object.Object:
     elif isinstance(node, ast.IfExpression):
         return evalIfExpression(node, env)
     
+    elif isinstance(node, ast.WhileExpression):
+        return evalWhileExpression(node, env)
+
+    elif isinstance(node, ast.ForExpression):
+        return evalForExpression(node, env)
+    
     # case of a return statement
     elif isinstance(node, ast.ReturnStatement):
+        if node.value is None:
+            return object.ReturnValue(object.Integer(0))
+
         val = Eval(node.value, env)
         if isError(val):
             return val
@@ -125,6 +134,28 @@ def Eval(node : ast.Node, env : object.Environment) -> object.Object:
     elif isinstance(node, ast.HashLiteral):
         return evalHashLiteral(node, env)
 
+    # case of assign statement
+    elif isinstance(node, ast.AssignStatement):
+        val = Eval(node.value, env)
+        if isError(val):
+            return val
+        
+        # set the current enviroment value
+        value, ok = env.get(node.name.value)
+        if not ok:
+            return newError("Can't assign value before declaration")
+        env.set(node.name.value, val)
+    
+    elif isinstance(node, ast.ContinueStatement):
+        if not env.inLoop:
+            return newError("Can't use continue outside a loop")
+        return object.CONTINUE
+
+    elif isinstance(node, ast.BreakStatement):
+        if not env.inLoop:
+            return newError("Can't use break outside a loop")
+        return object.BREAK
+
     # no functino to eval the ast.node
     else:
         return None
@@ -169,6 +200,10 @@ def evalInfixExpression(operator : str, left : object.Object, right : object.Obj
         return nativeBoolToBooleanObject(left == right)
     if operator == "!=":
         return nativeBoolToBooleanObject(left != right)
+    if operator == "&&" or operator == "and":
+        return nativeBoolToBooleanObject(left.value and right.value)
+    if operator == "||" or operator == "or":
+        return nativeBoolToBooleanObject(left.value or  right.value)
     if left.type() != right.type():
         return newError("type mismatch: {} {} {}", left.type(), operator, right.type())
     else:
@@ -188,10 +223,16 @@ def evalIntegerInfixExpression(operator : str, left : object.Object, right : obj
     # in case of integers, '/' is the division between integers
     if operator == "/":
         return object.Integer(leftValue // rightValue)
+    if operator == "%":
+        return object.Integer(leftValue %  rightValue)
     if operator == "<":
         return nativeBoolToBooleanObject(leftValue <  rightValue)
     if operator == ">":
         return nativeBoolToBooleanObject(leftValue >  rightValue)
+    if operator == "<=":
+        return nativeBoolToBooleanObject(leftValue <= rightValue)
+    if operator == ">=":
+        return nativeBoolToBooleanObject(leftValue >= rightValue)
     if operator == "==":
         return nativeBoolToBooleanObject(leftValue == rightValue)
     if operator == "!=":
@@ -234,7 +275,7 @@ def evalProgram(program : ast.Program, env : object.Environment) -> object.Objec
         # if we encounter a return statement, we don't want to go on
         if isinstance(result, object.ReturnValue):
             return result.value
-        elif isinstance(result, object.Error):
+        elif isinstance(result, (object.Exit, object.Error)):
             return result
     return result
 
@@ -245,8 +286,7 @@ def evalBlockStatements(block : ast.BlockStatement, env : object.Environment) ->
         result = Eval(statement, env)
 
         if result is not None:
-            rt = result.type()
-            if rt == object.RETURN_VALUE_OBJ or rt == object.ERROR_OBJ:
+            if result.type() in [object.BREAK_OBJ, object.CONTINUE_OBJ, object.RETURN_VALUE_OBJ, object.ERROR_OBJ, object.EXIT_OBJ]:
                 return result
 
     return result
@@ -364,3 +404,101 @@ def evalHashIndexExpression(left : object.Object, index : object.Object) -> obje
         return left.pairs[index.hashKey()].value
     
     return object.NULL
+
+# eval while expression
+def evalWhileExpression(we : ast.WhileExpression, env: object.Environment) -> object.Object:
+    result = object.NULL
+    previnLoop = env.inLoop
+    env.inLoop = True
+    while True:
+        condition = Eval(we.condition, env)
+        if isError(condition):
+            return condition
+    
+        # if condition is true, eval consequence
+        if isTruthy(condition):
+            result = Eval(we.block, env)
+            if isinstance(result, (object.Break)):
+                env.inLoop = previnLoop
+                return object.NULL
+            elif isinstance(result, (object.Error, object.Exit, object.ReturnValue)):
+                env.inLoop = previnLoop
+                return result
+            elif isinstance(result, object.Continue):
+                result = object.NULL
+                continue
+        else:
+            env.inLoop = previnLoop
+            return result
+
+
+def evalForExpression(floop : ast.ForExpression, env : object.Environment) -> object.Object:
+    # result of the for loop -> result of last statemnet executed
+    result = object.NULL
+    # remember if we were in a loop
+    previnLoop = env.inLoop
+    # set True inLoop
+    env.inLoop = True
+    # prev variables with the name used in floop.initali
+    prevName, prevValue = None, None
+
+    # if there is an initial statement
+    if floop.initial is not None:
+        # get name of the new variable
+        prevName = floop.initial.name.value
+        # get value of the prev value with same name
+        prevValue, _ = env.get(prevName)
+        # eval initial statement
+        initial = Eval(floop.initial, env)
+        if isError(initial):
+            return initial
+    
+    while True:
+        condition = object.TRUE
+        # check condition of floop
+        if floop.condition is not None:
+            condition = Eval(floop.condition, env)
+            if isError(condition):
+                return condition
+
+
+        if isTruthy(condition):
+            # eval block
+            result = Eval(floop.block, env)
+
+            # case of a result type which stops the loop
+            if isinstance(result, (object.Error, object.Exit, object.ReturnValue, object.Break)):
+                env.inLoop = previnLoop
+                if floop.initial is not None:
+                    env.reset(floop.initial.name.value)
+                    if prevValue is not None:
+                        env.set(prevName, prevValue)
+
+                # return NULL if it was an object.Break
+                return object.NULL if isinstance(result, object.Break) else result
+
+            # continue -> execute floop.update and next iteration
+            elif isinstance(result, object.Continue):
+                if floop.update is not None:
+                    update = Eval(floop.update, env)
+                    if isError(update):
+                        return update
+                result = object.NULL
+                continue
+        
+            # update
+            if floop.update is not None:
+                update = Eval(floop.update, env)
+                if isError(update):
+                    return update
+
+        else:
+            env.inLoop = previnLoop
+            # if there was an initial statement
+            if floop.initial is not None:
+                # remove from env the variable
+                env.reset(floop.initial.name.value)
+                # if there was a previous value, restore it
+                if prevValue is not None:
+                    env.set(prevName, prevValue)
+            return result

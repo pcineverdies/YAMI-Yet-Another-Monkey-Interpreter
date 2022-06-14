@@ -1,0 +1,52 @@
+/*
+    Get the binary rapresentation of a positive number
+    through a simple div&mod algorithm.
+*/
+
+let reverse = fn(array) {
+    let length = len(array);
+    let index = 0;
+    
+    while (index < length / 2) {
+        let temp = array[index];
+        update(array, index, array[length - index - 1]);
+        update(array, length - index - 1, temp)
+        index = index + 1;
+    }
+
+    return array;
+}
+
+let binary = fn(number){
+    let digits = []
+
+    // Error if number < 0 
+    if(number < 0) {
+        print("number must be positive!");
+        exit();
+    }
+
+    if (number == 0) {
+        return [0];
+    }
+
+    // div&mod gives us the digits in opposite order
+    while(number != 0) {
+        let reminder = number % 2;
+            number = number / 2;
+            push(digits, reminder);
+    }
+
+    return reverse(digits);
+}
+
+let main = fn() {
+    let index = 0;
+    let max = 256;
+    while(index != max) {
+        print(str(index) + " : " + str(binary(index)))
+        index = index + 1;
+    }
+}
+
+main()

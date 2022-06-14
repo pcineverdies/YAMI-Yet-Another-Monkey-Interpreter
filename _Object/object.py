@@ -86,10 +86,10 @@ class Function(Object):
         return "fn(" + ", ".join(params) + ") {\n" + self.body.string() + "\n}"
 
 class Environment:
-    def __init__(self, outer : Environment = None):
+    def __init__(self, outer : Environment = None, inLoop : bool = False):
         self.store = {}
         self.outer = outer
-
+        self.inLoop = inLoop
     
     def get(self, name : str) -> Tuple[Object, bool]:
         if name in self.store:
@@ -102,6 +102,9 @@ class Environment:
     def set(self, name : str, value : Object) -> Object:
         self.store[name] = value
         return value
+
+    def reset(self, name : str):
+        self.store.pop(name)
 
 class String(Object, Hashable):
     def __init__(self, value : str):
@@ -161,6 +164,30 @@ class Hash(Object):
         
         return "{" + ", ".join(pairs) + "}"
 
-TRUE  = Boolean(True)
-FALSE = Boolean(False)
-NULL  = Null()
+class Exit(Object):
+    def type(self) -> str:
+        return EXIT_OBJ
+
+    def inspect(self) -> str:
+        return "program exited"
+
+class Break(Object):
+    def type(self) -> str:
+        return BREAK_OBJ
+
+    def inspect(self) -> str:
+        return BREAK_OBJ
+
+class Continue(Object):
+    def type(self) -> str:
+        return CONTINUE_OBJ
+
+    def inspect(self) -> str:
+        return CONTINUE_OBJ
+
+TRUE     = Boolean(True)
+FALSE    = Boolean(False)
+EXIT     = Exit()
+NULL     = Null()
+BREAK    = Break()
+CONTINUE = Continue()

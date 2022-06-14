@@ -10,13 +10,19 @@ class Token:
 
 # Dictionary of associations between keywords and Token's types
 keywords = {
-    "fn"    : FUNCTION,
-    "let"   : LET,
-    "true"  : TRUE,
-    "false" : FALSE,
-    "if"    : IF,   
-    "else"  : ELSE,
-    "return": RETURN
+    "fn"        : FUNCTION,
+    "let"       : LET,
+    "true"      : TRUE,
+    "false"     : FALSE,
+    "if"        : IF,   
+    "else"      : ELSE,
+    "return"    : RETURN,
+    "and"       : AND,
+    "or"        : OR,
+    "while"     : WHILE,
+    "break"     : BREAK,
+    "continue"  : CONTINUE,
+    "for"       : FOR,
 }
 
 def newToken(tokenType : str, ch : str) -> Token:

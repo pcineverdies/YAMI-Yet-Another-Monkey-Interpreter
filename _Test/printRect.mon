@@ -1,0 +1,31 @@
+let main = fn(){
+    let dimRec = 10;
+
+    for(let i = 0; i < dimRec; i = i + 1){
+        for(let j = 0; j < dimRec; j = j + 1){
+            if ((i == 0 and j == 0) or (i == dimRec - 1 and j == 0)){
+                print("+");
+                continue;
+            }
+            if ((i == 0 and j == dimRec - 1) or (i == dimRec - 1 and j == dimRec - 1)){
+                print("+ ", "\n");
+                continue;
+            }
+            if(i == 0 or i == dimRec - 1){
+                print("- ");
+                continue;
+            }
+            if(j == 0){
+                print("|");
+                continue;
+            }   
+            if(j == dimRec - 1){
+                print("|", "\n");
+                continue;
+            }   
+            print("  ")
+        }
+    }
+}
+
+main()

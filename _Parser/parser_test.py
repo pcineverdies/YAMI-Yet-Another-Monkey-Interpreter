@@ -54,6 +54,7 @@ class TestParser(unittest.TestCase):
             return 4;
             return 10;
             return 24432;
+            return;
         """
 
         l = Lexer(input)
@@ -62,7 +63,7 @@ class TestParser(unittest.TestCase):
         program = p.parseProgram()
         self.checkParserErrors(p)
 
-        self.checkLen(program.statements, 3)
+        self.checkLen(program.statements, 4)
 
         for stmt in program.statements:
             self.checkInstanceOf(stmt, ReturnStatement)
@@ -159,6 +160,13 @@ class TestParser(unittest.TestCase):
             TestCase("5 == 5;", 5, "==", 5), 
             TestCase("5 != 5;", 5, "!=", 5),
             TestCase("true != false", True, "!=", False),
+            TestCase("5 % 5;", 5, "%", 5),
+            TestCase("5 && 5;", 5, "&&", 5),
+            TestCase("5 || 5;", 5, "||", 5),
+            TestCase("5 <= 5;", 5, "<=", 5),
+            TestCase("5 >= 5;", 5, ">=", 5),
+            TestCase("5 or 5;", 5, "or", 5),
+            TestCase("5 and 5;", 5, "and", 5),
         ]
 
         for elem in infixTests:
@@ -491,3 +499,138 @@ class TestParser(unittest.TestCase):
     def checkEqualValue(self, arg, value, expected):
         self.assertEqual(value, expected, 
             "{} not {}. Got {}".format(arg, expected, value))
+
+    def testWhileExpression(self):
+        input = "while (x < y) { x }"
+        l = Lexer(input)
+        p = Parser(l)
+
+        program = p.parseProgram()
+        self.checkParserErrors(p)
+    
+        self.checkLen(program.statements, 1)
+        stmt = program.statements[0]
+        self.checkInstanceOf(stmt, ExpressionStatement)
+        exp = stmt.expression
+        self.checkInstanceOf(exp, WhileExpression)
+        self.infixExpression(exp.condition, "x", "<", "y")
+        self.checkLen(exp.block.statements, 1)
+        consequence = exp.block.statements[0]
+        self.checkInstanceOf(consequence, ExpressionStatement)
+        self.identifier(consequence.expression, "x")
+
+    def testAssignStatements(self):
+        @dataclass
+        class TestCase:
+            input :              str
+            expectedIdentifier : str
+            expectedValue :      ...
+
+        tests = [
+            TestCase("x = 5", "x", 5),
+            TestCase("y = true", "y", True),
+            TestCase("foobar = y", "foobar", "y"),
+        ] 
+
+        for elem in tests:
+            l = Lexer(elem.input)
+            p = Parser(l)        
+
+            program = p.parseProgram()
+            self.checkParserErrors(p)
+
+            self.checkLen(program.statements, 1)
+
+            stmt = program.statements[0]
+            self.checkTokenLiteral(stmt.tokenLiteral(), "=")
+            self.checkInstanceOf(stmt, AssignStatement)
+            self.checkEqualValue("stt.name.value", stmt.name.value, elem.expectedIdentifier)
+            self.checkEqualValue("stt.name", stmt.name.tokenLiteral(), elem.expectedIdentifier)
+            val = stmt.value
+            self.literalExpression(val, elem.expectedValue)
+
+    def testBreakStatement(self):
+        input = "break;"
+
+        l = Lexer(input)
+        p = Parser(l)        
+
+        program = p.parseProgram()
+        self.checkParserErrors(p)
+
+        self.checkLen(program.statements, 1)
+
+        stmt = program.statements[0]
+        self.checkInstanceOf(stmt, BreakStatement)
+
+    def testContinueStatement(self):
+        input = "continue;"
+
+        l = Lexer(input)
+        p = Parser(l)        
+
+        program = p.parseProgram()
+        self.checkParserErrors(p)
+
+        self.checkLen(program.statements, 1)
+
+        stmt = program.statements[0]
+        self.checkInstanceOf(stmt, ContinueStatement)
+    
+    def testForExpression(self):
+        input = """
+            for(let i = 0; i < 10; i = i + 1){
+                x;
+            }
+        """
+        l = Lexer(input)
+        p = Parser(l)
+
+        program = p.parseProgram()
+        self.checkParserErrors(p)
+    
+        self.checkLen(program.statements, 1)
+        stmt = program.statements[0]
+        self.checkInstanceOf(stmt, ExpressionStatement)
+        exp = stmt.expression
+        self.checkInstanceOf(exp, ForExpression)
+
+        self.letStatement(exp.initial, "i")
+        self.infixExpression(exp.condition.expression, "i", "<", 10)
+
+        self.checkTokenLiteral(exp.update.tokenLiteral(), "=")
+        self.checkInstanceOf(exp.update, AssignStatement)
+        self.checkEqualValue("exp.update.name.value", exp.update.name.value, "i")
+        self.checkEqualValue("exp.update.name", exp.update.name.tokenLiteral(), "i")
+
+        self.checkLen(exp.block.statements, 1)
+        consequence = exp.block.statements[0]
+        self.checkInstanceOf(consequence, ExpressionStatement)
+        self.identifier(consequence.expression, "x")
+
+    def testForExpressionNoElements(self):
+        input = """
+            for(;;){
+                x;
+            }
+        """
+        l = Lexer(input)
+        p = Parser(l)
+
+        program = p.parseProgram()
+        self.checkParserErrors(p)
+    
+        self.checkLen(program.statements, 1)
+        stmt = program.statements[0]
+        self.checkInstanceOf(stmt, ExpressionStatement)
+        exp = stmt.expression
+        self.checkInstanceOf(exp, ForExpression)
+
+        self.checkEqualValue("exp.initial", exp.initial, None)
+        self.checkEqualValue("exp.conditino", exp.condition, None)
+        self.checkEqualValue("exp.update", exp.update, None)
+
+        self.checkLen(exp.block.statements, 1)
+        consequence = exp.block.statements[0]
+        self.checkInstanceOf(consequence, ExpressionStatement)
+        self.identifier(consequence.expression, "x")

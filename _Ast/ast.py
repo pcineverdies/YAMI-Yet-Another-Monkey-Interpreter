@@ -343,3 +343,94 @@ class HashLiteral(Expression):
             pairs.append(key.string() + ":" + value.string())
         
         return "{" + ", ".join(pairs) + "}"
+
+class WhileExpression(Expression):
+    def __init__(self, token : token.Token, condition : Expression = None, block : BlockStatement = None):
+        self.token = token
+        self.condition = condition
+        self.block = block
+    
+    def expressionNode(self):
+        return super().expressionNode()
+    
+    def tokenLiteral(self) -> str:
+        return self.token.litearl
+    
+    def string(self) -> str:
+        return "while" + self.condition.string() + " " + self.consequence.string()
+
+# Assign statement node
+class AssignStatement(Statement):
+    def __init__(self, token : token.Token, name : Identifier = None, 
+                 value : Expression = None):
+        self.token = token
+        self.name = name
+        self.value = value
+
+    def statementNode(self):
+        return super().statementNode()
+    
+    def tokenLiteral(self) -> str:
+        return self.token.literal
+    
+    def string(self) -> str:
+        msg = self.name.string() + " = "
+
+        if self.value != None:
+            msg += self.value.string()
+        
+        msg += ";"
+
+        return msg
+
+# Break statement
+class BreakStatement(Statement):
+
+    def statementNode(self):
+        return super().statementNode()
+    
+    def tokenLiteral(self) -> str:
+        return self.token.literal
+    
+    def string(self) -> str:
+        return "break;"
+
+# Continue statement
+class ContinueStatement(Statement):
+
+    def statementNode(self):
+        return super().statementNode()
+    
+    def tokenLiteral(self) -> str:
+        return self.token.literal
+    
+    def string(self) -> str:
+        return "continue;"
+
+class ForExpression(Expression):
+    def __init__(self, token : token.Token, initial : Statement = None, condition : Expression = None,
+                 update : Statement = None, block : BlockStatement = None):
+        self.token = token
+        self.initial = initial
+        self.condition = condition
+        self.update = update
+        self.block = block
+    
+    def expressionNode(self):
+        return super().expressionNode()
+    
+    def tokenLiteral(self) -> str:
+        return self.token.litearl
+    
+    def string(self) -> str:
+        out = "for( "
+        if self.initial is not None:
+            out += self.initial.string()
+        out += "; "
+        if self.condition is not None:
+            out += self.condition.string()
+        out += "; "
+        if self.update is not None:
+            out += self.update.string()
+        out += ")" + self.block.string()
+        return out
