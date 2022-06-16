@@ -1,0 +1,92 @@
+let DIM = 10;
+let EMPTY = " ";
+let FULL  = "*"
+let currentPositionX = 0;
+let currentPositionY = 0;
+
+let newGrid = fn(dimension){
+    let grid = [];
+    for(let i = 0; i < dimension; i = i + 1){
+        let newRow = [];
+        for(let j = 0; j < dimension; j = j + 1){
+            push(newRow, EMPTY);
+        }
+        push(grid, newRow);
+    }
+    return grid;
+}
+
+let updateGrid = fn(x, y, value){
+    let oldRow = grid[y];
+    update(oldRow, x, value);
+    update(grid, y, oldRow);
+}
+
+let printGrid = fn(grid, dimension){
+    print("+ ");
+    for(let j = 0; j < dimension; j = j + 1){
+        print("--");
+    }
+    printl("+");
+    for(let i = 0; i < dimension; i = i + 1){
+        print("| ");
+        for(let j = 0; j < dimension; j = j + 1){
+            print(grid[i][j], " ");
+        }
+        printl("|");
+    }
+    print("+ ");
+    for(let j = 0; j < dimension; j = j + 1){
+        print("--");
+    }
+    printl("+");
+}
+
+let moving = fn(dir, dimension){
+    updateGrid(currentPositionX, currentPositionY, EMPTY);
+    if (dir == "w"){
+        currentPositionY = currentPositionY - 1;
+        if(currentPositionY == -1){
+            currentPositionY = dimension - 1;
+        }
+    }
+    if (dir == "s"){
+        currentPositionY = currentPositionY + 1;
+        if(currentPositionY == dimension){
+            currentPositionY = 0;
+        }
+    }
+    if (dir == "d"){
+        currentPositionX = currentPositionX + 1;
+        if (currentPositionX == dimension - 1){
+            currentPositionX  = 0;
+        }
+    }
+    if(dir == "a"){
+        currentPositionX = currentPositionX - 1;
+        if(currentPositionX == -1){
+            currentPositionX = dimension - 1;
+        }
+    }
+    updateGrid(currentPositionX, currentPositionY, FULL);
+    return;
+}
+
+let main = fn(){
+    let grid = newGrid(DIM);
+    updateGrid(currentPositionX, currentPositionY, FULL);
+    printGrid(grid, DIM);
+    while(true){
+        let movingDirection = input();
+        if(movingDirection != "w" and movingDirection != "s" and movingDirection != "a" and movingDirection != "d"){
+            if(movingDirection == "q"){
+                exit();
+            }
+            continue;
+        }
+        moving(movingDirection, DIM);
+        printGrid(grid, DIM);
+    }
+}
+
+main();

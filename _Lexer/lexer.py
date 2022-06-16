@@ -72,6 +72,9 @@ class Lexer():
         if self.ch == "*":
             tok = token.newToken(token.ASTERISK, self.ch) 
 
+        if self.ch == ".":
+            tok = token.newToken(token.DOT, self.ch) 
+
         if self.ch == "<":
             if self.peekChar() == "=":
                 ch = self.ch
@@ -139,7 +142,7 @@ class Lexer():
                 tok.literal = self.readToken(self.isLetter)
                 tok.type    = token.lookupIdent(tok.literal)
                 return tok
-            if self.isDigit(self.ch):
+            if isdigit(self.ch):
                 tok.literal = self.readToken(self.isDigit)
                 tok.type = token.INT
                 return tok
@@ -151,7 +154,7 @@ class Lexer():
         return isalpha(ch) or ch == '_'
     
     def isDigit(self, ch : str) -> bool:
-        return isdigit(ch)
+        return isdigit(ch) or self.ch == "."
     
     # read a token until it satisfies verifyFunction (both for literals and digits)
     def readToken(self, verifyFunction : callable) -> str:

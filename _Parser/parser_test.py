@@ -12,12 +12,14 @@ class TestParser(unittest.TestCase):
         class TestCase:
             input :              str
             expectedIdentifier : str
+            ExpectedInstance   : str
             expectedValue :      ...
 
         tests = [
-            TestCase("let x = 5", "x", 5),
-            TestCase("let y = true", "y", True),
-            TestCase("let foobar = y", "foobar", "y"),
+            TestCase("let x = 5", "x", None, 5),
+            TestCase("let y = true", "y", None, True),
+            TestCase("let foobar = y", "foobar", None, "y"),
+            TestCase("let classname.name = 10", "classname", "name", 10 )
         ] 
 
         for elem in tests:
@@ -30,15 +32,17 @@ class TestParser(unittest.TestCase):
             self.checkLen(program.statements, 1)
 
             stmt = program.statements[0]
-            self.letStatement(stmt, elem.expectedIdentifier)
+            self.letStatement(stmt, elem.expectedIdentifier, elem.ExpectedInstance)
             val = stmt.value
             self.literalExpression(val, elem.expectedValue)
 
-    def letStatement(self, stt, expectedIdentifier):
+    def letStatement(self, stt, expectedIdentifier, expectedInstance = None):
         self.checkTokenLiteral(stt.tokenLiteral(), "let")
         self.checkInstanceOf(stt, LetStatement)
         self.checkEqualValue("stt.name.vale", stt.name.value, expectedIdentifier)
         self.checkEqualValue("stt.name", stt.name.tokenLiteral(), expectedIdentifier)
+        if expectedInstance is not None:
+            self.checkEqualValue("stt.name.instance", stt.instance.tokenLiteral(), expectedInstance)
     
     def checkParserErrors(self, parser):
         errors = parser.getErrors()   
@@ -181,33 +185,37 @@ class TestParser(unittest.TestCase):
             exp = program.statements[0].expression
             self.infixExpression(exp, elem.leftValue, elem.operator, elem.rightValue)
 
-    def tstOperatorPrecedenceParsing(self):
+    def testOperatorPrecedenceParsing(self):
         @dataclass
         class TestCase:
             input:      string
             expected:   string
         
         tests = [
-            TestCase("!-a", "(!(-a))",                                  ),
-            TestCase("a + b + c", "((a + b) + c)",                      ),
-            TestCase("a + b - c","((a + b) - c)",                       ),
-            TestCase("a * b * c","((a * b) * c)",                       ),
-            TestCase("a * b / c","((a * b) / c)",                       ),
-            TestCase("a + b / c","(a + (b / c))",                       ),
+            TestCase("!-a", "(!(-a));",                                  ),
+            TestCase("a + b + c", "((a + b) + c);",                      ),
+            TestCase("a + b - c","((a + b) - c);",                       ),
+            TestCase("a * b * c","((a * b) * c);",                       ),
+            TestCase("a * b / c","((a * b) / c);",                       ),
+            TestCase("a + b / c","(a + (b / c));",                       ),
             TestCase("a + b * c + d / e - f", 
-                     "(((a + (b * c)) + (d / e)) - f)"                  ), 
+                     "(((a + (b * c)) + (d / e)) - f);"                  ), 
             TestCase("3 + 4 * 5 == 3 * 1 + 4 * 5", 
-                     "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))"           ),
-            TestCase("3 < 5 == false", "((3 < 5) == false)"             ),
-            TestCase("3 < 5 == false", "((3 < 5) == false)"             ),
-            TestCase("3 < 5 == false", "((3 < 5) == false)"             ),
-            TestCase("( 5 + 5 ) * 2", "((5 + 5) * 2)"                   ),
-            TestCase("-( 5 + 5 )", "(-(5 + 5))"                         ),
-            TestCase("!(true == false)", "(!(true == false))"           ),
-            TestCase("a + add(b * c) + d", "((a + add((b * c))) + d)"   ),
+                     "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)));"           ),
+            TestCase("3 < 5 == false", "((3 < 5) == false);"             ),
+            TestCase("3 < 5 == false", "((3 < 5) == false);"             ),
+            TestCase("3 < 5 == false", "((3 < 5) == false);"             ),
+            TestCase("( 5 + 5 ) * 2", "((5 + 5) * 2);"                   ),
+            TestCase("-( 5 + 5 )", "(-(5 + 5));"                         ),
+            TestCase("!(true == false)", "(!(true == false));"           ),
+            TestCase("a + add(b * c) + d", "((a + add((b * c))) + d);"   ),
             TestCase("add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))", 
-                     "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))"  ),
-            TestCase("!(true == false)", "(!(true == false))"           ),
+                     "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)));"  ),
+            TestCase("!(true == false)", "(!(true == false));"           ),
+            TestCase("elem.add(10)", "(elem . add(10));"                 ),
+            TestCase("!elem.inst(10);", "(!(elem . inst(10)));"          ),
+            TestCase("print(inst.var);", "print((inst . var));"          ),
+            TestCase("elem.inst().inst();", "((elem . inst()) . inst());"),
 
         ]
 
@@ -219,7 +227,7 @@ class TestParser(unittest.TestCase):
             self.checkParserErrors(p)
 
             actual = program.string()
-            self.checkEqualValue("parsed", elem.expected, actual)
+            self.checkEqualValue("parsed", actual, elem.expected)
 
     def identifier(self, exp, value):
         self.checkInstanceOf(exp, Identifier)
@@ -634,3 +642,21 @@ class TestParser(unittest.TestCase):
         consequence = exp.block.statements[0]
         self.checkInstanceOf(consequence, ExpressionStatement)
         self.identifier(consequence.expression, "x")
+
+    def testClassLiteralParsing(self):
+        input = "class{ let x = 10;}"
+
+        l = Lexer(input)
+        p = Parser(l)
+
+        program = p.parseProgram()
+        self.checkParserErrors(p)
+
+        self.checkLen(program.statements, 1)
+        stmt = program.statements[0]
+        self.checkInstanceOf(stmt, ExpressionStatement)
+        function = stmt.expression
+        self.checkInstanceOf(function, Classliteral)
+        self.checkLen(function.body.statements, 1)
+        bodystmt = function.body.statements[0]
+        self.checkInstanceOf(bodystmt, LetStatement)

@@ -1,4 +1,5 @@
-from _Token.const import AND
+from lib2to3.pgen2.token import DOT
+from _Token.const import AND, ASSIGN
 import _Token.token as token
 
 # List of priorities 
@@ -10,8 +11,10 @@ LESSGREATER     = 4
 SUM             = 5
 PRODUCT         = 6
 PREFIX          = 7
-CALL            = 8
-INDEX           = 9
+#ASSIGN          = 7
+DOT             = 8
+CALL            = 9
+INDEX           = 10
 
 # Dictionary that associates each token type
 # to its priority
@@ -31,4 +34,5 @@ precedences = {
     token.LBRACKET  : INDEX,
     token.AND       : AND,
     token.OR        : OR,
+    token.DOT       : DOT,
 }

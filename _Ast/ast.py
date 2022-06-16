@@ -60,6 +60,7 @@ class LetStatement(Statement):
         self.token = token
         self.name = name
         self.value = value
+        self.instance = None
 
     def statementNode(self):
         return super().statementNode()
@@ -434,3 +435,41 @@ class ForExpression(Expression):
             out += self.update.string()
         out += ")" + self.block.string()
         return out
+
+# Classliteral node
+class Classliteral(Expression):
+    def __init__(self, token : token.Token, body : BlockStatement = None):
+        self.token = token
+        self.body = body
+    
+    def expressionNode(self):
+        return super().expressionNode()
+    
+    def tokenLiteral(self) -> str:
+        return self.token.literal
+    
+    def string(self) -> str:
+        return self.tokenLiteral() + self.body.string()
+
+class AssignStatementClass(Statement):
+    def __init__(self, token : token.Token, name : Expression = None, 
+                 value : Expression = None):
+        self.token = token
+        self.name = name
+        self.value = value
+
+    def statementNode(self):
+        return super().statementNode()
+    
+    def tokenLiteral(self) -> str:
+        return self.token.literal
+    
+    def string(self) -> str:
+        msg = self.name.string() + " = "
+
+        if self.value != None:
+            msg += self.value.string()
+        
+        msg += ";"
+
+        return msg

@@ -8,7 +8,7 @@ let main = fn(){
                 continue;
             }
             if ((i == 0 and j == dimRec - 1) or (i == dimRec - 1 and j == dimRec - 1)){
-                print("+ ", "\n");
+                printl("+ ");
                 continue;
             }
             if(i == 0 or i == dimRec - 1){
@@ -20,7 +20,7 @@ let main = fn(){
                 continue;
             }   
             if(j == dimRec - 1){
-                print("|", "\n");
+                printl("|");
                 continue;
             }   
             print("  ")

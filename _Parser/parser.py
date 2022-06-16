@@ -26,6 +26,7 @@ class Parser:
         self.registerPrefix(token.WHILE,    self.parseWhileExpression)      # while
         self.registerPrefix(token.FOR,      self.parseForExpression)        # for
         self.registerPrefix(token.FUNCTION, self.parseFunctionLiteral)      # fn
+        self.registerPrefix(token.CLASS,    self.parseClassLiteral)         # class
         self.registerPrefix(token.STRING,   self.parseStringLiteral)        # string
         self.registerPrefix(token.LBRACKET, self.parseArrayLiteral)         # [ prefix
         self.registerPrefix(token.LBRACE,   self.parseHashLiteral)          # { prefix
@@ -36,10 +37,11 @@ class Parser:
         self.registerInfix(token.SLASH,     self.parseInfixExpression)      # /
         self.registerInfix(token.MODULUS,   self.parseInfixExpression)      # %
         self.registerInfix(token.ASTERISK,  self.parseInfixExpression)      # *
-        self.registerInfix(token.EQ,        self.parseInfixExpression)      # =
+        self.registerInfix(token.EQ,        self.parseInfixExpression)      # ==
         self.registerInfix(token.NOT_EQ,    self.parseInfixExpression)      # !=
         self.registerInfix(token.LT,        self.parseInfixExpression)      # <
         self.registerInfix(token.GT,        self.parseInfixExpression)      # >
+        self.registerInfix(token.DOT,       self.parseInfixExpression)      # .
         self.registerInfix(token.GTE,       self.parseInfixExpression)      # >=
         self.registerInfix(token.LTE,       self.parseInfixExpression)      # <=
         self.registerInfix(token.AND,       self.parseInfixExpression)      # and, &&
@@ -96,6 +98,11 @@ class Parser:
         
         # get the identifier
         stmt.name = ast.Identifier(self.curToken, self.curToken.literal)
+
+        if self.peekTokenIs(token.DOT):
+            self.nextToken()
+            self.nextToken()
+            stmt.instance = ast.Identifier(self.curToken, self.curToken.literal)
 
         # if peek token is not an assing, return None
         if not self.expectPeek(token.ASSIGN):
@@ -215,12 +222,20 @@ class Parser:
     def parseIntegerLiteral(self)  -> ast.IntegerLiteral:
         lit = ast.IntegerLiteral(self.curToken)
 
-        try:
-            lit.value = int(self.curToken.literal)
-        except ValueError:
-            msg = "could not parse {} as integer".format(self.curToken.literal)
-            self.errors.append(msg)
-            return None
+        if "." in self.curToken.literal:
+            try:
+                lit.value = float(self.curToken.literal)
+            except ValueError:
+                msg = "could not parse {} as float".format(self.curToken.literal)
+                self.errors.append(msg)
+                return None
+        else:
+            try:
+                lit.value = int(self.curToken.literal)
+            except ValueError:
+                msg = "could not parse {} as integer".format(self.curToken.literal)
+                self.errors.append(msg)
+                return None
 
         return lit
 
@@ -521,3 +536,14 @@ class Parser:
         expression.block = self.parseBlockStatement()
 
         return expression      
+
+    # parse class declaration
+    def parseClassLiteral(self) -> ast.Classliteral:
+        lit = ast.Classliteral(self.curToken)
+        if not self.expectPeek(token.LBRACE):
+            return None
+        
+        lit.body = self.parseBlockStatement()
+
+        return lit
+        

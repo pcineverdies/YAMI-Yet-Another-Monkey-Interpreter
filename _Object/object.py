@@ -70,10 +70,9 @@ class Error(Object):
         return "ERROR: " + self.message
 
 class Function(Object):
-    def __init__(self, parameters : List[ast.Identifier], body : ast.BlockStatement, env : Environment):
+    def __init__(self, parameters : List[ast.Identifier], body : ast.BlockStatement):
         self.parameters = parameters
         self.body = body
-        self.env = env
     
     def type(self) -> Object:
         return FUNCTION_OBJ
@@ -99,9 +98,15 @@ class Environment:
         else:
             return None, False
     
-    def set(self, name : str, value : Object) -> Object:
-        self.store[name] = value
-        return value
+    def set(self, name : str, value : Object, inCurrentSope : bool):
+        if self.get(name)[1] and not inCurrentSope:
+            if name in self.store:
+                self.store[name] = value
+                return
+            else:
+                self.outer.set(name, value, inCurrentSope)
+        else:
+            self.store[name] = value
 
     def reset(self, name : str):
         self.store.pop(name)
@@ -184,6 +189,24 @@ class Continue(Object):
 
     def inspect(self) -> str:
         return CONTINUE_OBJ
+
+class Class(Object):
+    def __init__(self, body : ast.BlockStatement = None, env : Environment = None):
+        self.env = env
+        self.body = body # used just to print it
+    
+    def type(self) -> Object:
+        return CLASS_OBJ
+
+class ClassInstance(Object):
+    def __init__(self, env : Environment):
+        self.env = env
+
+    def type(self) -> str:
+        return CLASS_INSTANCE_OBJ
+    
+    def inspect(self) -> str:
+        return CLASS_INSTANCE_OBJ
 
 TRUE     = Boolean(True)
 FALSE    = Boolean(False)

@@ -1,3 +1,4 @@
+from cmath import e
 from dataclasses import dataclass
 import unittest
 import _Lexer.lexer as lexer
@@ -162,7 +163,8 @@ class TestEvaluator(unittest.TestCase):
             TestCase("foobar", "identifier not found: foobar"),
             TestCase('"A" - "B"', "unknown operator: STRING - STRING"),
             TestCase('{"name":"Monkey"}[fn(x){x}];', "unusable as hash key: FUNCTION"),
-            TestCase('let a = 10; a = 20; b = 30;', "Can't assign value before declaration")
+            TestCase('let a = 10; a = 20; b = 30;', "Can't assign value before declaration"),
+            TestCase("class{ let x = 2; return;}", "in class declaration there must be only Let statements"),
         ]
 
         for elem in tests:
@@ -228,17 +230,6 @@ class TestEvaluator(unittest.TestCase):
         evaluated = self.eval(input)
         self.checkInstanceOf(evaluated, object.String)
         self.checkValue(evaluated.value, "Hello World!")
-    
-    def testClosures(self):
-        input = """
-            let newAdder = fn(x) {
-                fn(y) {x + y}
-            };
-
-            let addTwo = newAdder(2);
-            addTwo(2);
-        """
-        self.typeObject(self.eval(input), 4, object.Integer)
     
     def testStringConcatenation(self):
         input = '"Hello" + " " +"World!"'
@@ -381,7 +372,7 @@ class TestEvaluator(unittest.TestCase):
             expected : any
         
         tests = [ 
-            TestCase("let a = 0; while (a < 10) { let a = a + 1; }; a;", 10),
+            TestCase("let a = 0; while (a < 10) {a = a + 1; }; a;", 10),
         ]
 
         for elem in tests:
@@ -471,7 +462,7 @@ class TestEvaluator(unittest.TestCase):
             """, 40),
             TestCase("""
                 let a = 50;
-                for(let a = 1;a < 40; a = a + 1){}
+                for(let a = 1; a < 40; a = a + 1){}
                 a;
             """, 50),
         ]
@@ -482,6 +473,19 @@ class TestEvaluator(unittest.TestCase):
                 self.typeObject(evaluated, elem.expected, object.Integer)
             else:
                 self.nullObject(evaluated)
+
+    def testClassLiteralObject(self):
+        input = "let A = class{ let x = 2; let func = fn(){return x;}; }; A;"
+
+        evaluated = self.eval(input)
+        if isinstance(evaluated, object.Error):
+            self.fail(evaluated.message)
+        self.checkInstanceOf(evaluated, object.Class)
+        
+        expectBody = "{let x = 2; let func = fn() {return x;};}"
+
+        self.assertEqual(evaluated.body.string(), expectBody,
+            "parameters is not {}. got={}".format(expectBody, evaluated.body.string()))
 
 # -------------------- NO TEST ----------------------------------
 

@@ -6,7 +6,6 @@ import _Evaluator.evaluator as evaluator
 
 def start(path : str):
     filePath = os.getcwd() + "/" + str(path)
-    print(filePath)
     if not os.path.exists(filePath):
         print("File not found!")
         return
@@ -24,7 +23,9 @@ def start(path : str):
     
         evaluated = evaluator.Eval(program, env)
         if evaluated is not None:
-            print(evaluated.inspect())
+            res = evaluated.inspect()
+            if res != "null":
+                print(evaluated.inspect())
 
 def printParserErrors(errors):
     for msg in errors:

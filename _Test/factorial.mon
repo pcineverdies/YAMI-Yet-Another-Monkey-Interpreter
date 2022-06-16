@@ -11,15 +11,12 @@ let factorial = fn(x){
     }
 }
 
-let computed = [];
-
-let fillArray = fn(n){
-    if (n > 0) {
-        fillArray(n-1);
+let fillArray = fn(function, n){
+    let result = [];
+    for(let i = 0; i < n; i = i + 1){
+        push(result, function(i));
     }
-    push(computed,factorial(n));
+    return result;
 }
 
-fillArray(10);
-
-computed
+fillArray(factorial, 10);

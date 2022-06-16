@@ -41,7 +41,8 @@ class TestToken(unittest.TestCase):
             for(;;){
 
             }
-
+            class
+            classname.method
         """
 
         expected = [
@@ -173,6 +174,10 @@ class TestToken(unittest.TestCase):
             newToken(RPAREN,       ")"),
             newToken(LBRACE,       "{"),
             newToken(RBRACE,       "}"),
+            newToken(CLASS,        "class"),
+            newToken(IDENT,        "classname"),
+            newToken(DOT,          "."),
+            newToken(IDENT,        "method"),
             newToken(EOF,          "")
         ]
 

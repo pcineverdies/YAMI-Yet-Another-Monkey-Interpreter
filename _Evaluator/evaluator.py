@@ -1,4 +1,6 @@
+
 from typing import List
+import copy
 import _Ast.ast as ast
 import _Object.object as object
 import _Evaluator.builtins as builtins
@@ -35,6 +37,9 @@ def Eval(node : ast.Node, env : object.Environment) -> object.Object:
 
     # case of infix expression
     elif isinstance(node, ast.InfixExpression):
+        if node.operator == ".":
+            return evalClassInstanceExpression(node, env)
+
         # first: eval the right expression
         right = Eval(node.right, env)
         if isError(right):
@@ -79,8 +84,18 @@ def Eval(node : ast.Node, env : object.Environment) -> object.Object:
         if isError(val):
             return val
         
+        if node.instance is not None:
+            instance, exist = env.get(node.name.value)
+            if not exist or not isinstance(instance, object.ClassInstance):
+                return newError("Can't find object {}", node.name.value)
+            _, exist = instance.env.get(node.instance.value)
+            if not exist:
+                return newError("Can't find instance {}", node.instance.value)
+            instance.env.set(node.instance.value, val, True)
+            return
+
         # set the current enviroment value
-        env.set(node.name.value, val)
+        env.set(node.name.value, val, True)
     
     # case of an identifier (get its value from env)
     elif isinstance(node, ast.Identifier):
@@ -90,7 +105,7 @@ def Eval(node : ast.Node, env : object.Environment) -> object.Object:
     elif isinstance(node, ast.FunctionLiteral):
         params = node.parameters
         body = node.body
-        return object.Function(params, body, env)
+        return object.Function(params, body)
     
     # case of a call expression
     elif isinstance(node, ast.CallExpression):
@@ -99,13 +114,16 @@ def Eval(node : ast.Node, env : object.Environment) -> object.Object:
         if isError(function):
             return function
         
+        if(isinstance(function, object.Class)):
+            return object.ClassInstance(copy.deepcopy(function.env))
+        
         # eval its arguments
         args = evalExpressions(node.arguments, env)
         if len(args) == 1 and isError(args[0]):
             return args[0]
 
         # apply the function
-        return applyFunction(function, args)
+        return applyFunction(function, args, env)
     
     # case of string
     elif isinstance(node, ast.StringLiteral):
@@ -144,7 +162,7 @@ def Eval(node : ast.Node, env : object.Environment) -> object.Object:
         value, ok = env.get(node.name.value)
         if not ok:
             return newError("Can't assign value before declaration")
-        env.set(node.name.value, val)
+        env.set(node.name.value, val, False)
     
     elif isinstance(node, ast.ContinueStatement):
         if not env.inLoop:
@@ -155,6 +173,9 @@ def Eval(node : ast.Node, env : object.Environment) -> object.Object:
         if not env.inLoop:
             return newError("Can't use break outside a loop")
         return object.BREAK
+    
+    elif isinstance(node, ast.Classliteral):
+        return evalClassLiteral(node)
 
     # no functino to eval the ast.node
     else:
@@ -222,7 +243,7 @@ def evalIntegerInfixExpression(operator : str, left : object.Object, right : obj
         return object.Integer(leftValue * rightValue)
     # in case of integers, '/' is the division between integers
     if operator == "/":
-        return object.Integer(leftValue // rightValue)
+        return object.Integer(leftValue / rightValue)
     if operator == "%":
         return object.Integer(leftValue %  rightValue)
     if operator == "<":
@@ -243,17 +264,19 @@ def evalIntegerInfixExpression(operator : str, left : object.Object, right : obj
 # eval if expression
 def evalIfExpression(ie : ast.IfExpression, env: object.Environment) -> object.Object:
     # eval condition
+    newEnv = object.Environment(env, env.inLoop)
+
     condition = Eval(ie.condition, env)
     if isError(condition):
         return condition
     
     # if condition is true, eval consequence
     if isTruthy(condition):
-        return Eval(ie.consequence, env)
+        return Eval(ie.consequence, newEnv)
     
     # else if there's else branch, eval it
     elif ie.alternative is not None:
-        return Eval(ie.alternative, env)
+        return Eval(ie.alternative, newEnv)
     
     # else return NULL
     else:
@@ -321,12 +344,12 @@ def evalExpressions(exps : List[ast.Expression], env : object.Object) -> List[ob
     return result
 
 # apply a function
-def applyFunction(fn : object.Object, args : List[object.Object]) -> object.Object:
+def applyFunction(fn : object.Object, args : List[object.Object], env : object.Environment = None) -> object.Object:
     if isinstance(fn, object.Function):
     # we extended the environment of a function pushing the arguments too
         if len(fn.parameters) != len(args):
             return newError("wrong number of parametrs: wanted {}, got {}", len(fn.parameters), len(args))
-        extendedEnv = extendFunctionEnvironment(fn, args)
+        extendedEnv = extendFunctionEnvironment(fn, args, env)
         evaluated = Eval(fn.body, extendedEnv)
         return unwrapReturnValue(evaluated)
     
@@ -336,11 +359,11 @@ def applyFunction(fn : object.Object, args : List[object.Object]) -> object.Obje
     return newError("not a function: {}", fn.type())
 
 # extend function environment
-def extendFunctionEnvironment(fn : object.Object, args : List[object.Object]) -> object.Environment:
-    env = object.Environment(fn.env)
+def extendFunctionEnvironment(fn : object.Object, args : List[object.Object], env : object.Environment = None) -> object.Environment:
+    env = object.Environment(env)
 
     for idx, param in enumerate(fn.parameters):
-        env.set(param.value, args[idx])
+        env.set(param.value, args[idx], True)
 
     return env
 
@@ -351,12 +374,18 @@ def unwrapReturnValue(ev : object.Object) -> object.Object:
     return ev
 
 def evalStringInfixExpression(operator : str, left : object.Object, right : object.Object) -> object.Object:
-    if operator != "+":
+    if operator not in ["+", "==", "!="]:
         return newError("unknown operator: {} {} {}", left.type(), operator, right.type())
     
     leftVal = left.value
     rightVal = right.value
-    return object.String(leftVal + rightVal)
+    if operator == "+":
+        return object.String(leftVal + rightVal)
+    elif operator == "!=":
+        return nativeBoolToBooleanObject(leftVal != rightVal)
+    elif operator == "==":
+        return nativeBoolToBooleanObject(leftVal == rightVal)
+
 
 def evalIndexExpression(left : object.Object, index : object.Object) -> object.Object:
     if left.type() == object.ARRAY_OBJ and index.type() == object.INTEGER_OBJ:
@@ -408,8 +437,7 @@ def evalHashIndexExpression(left : object.Object, index : object.Object) -> obje
 # eval while expression
 def evalWhileExpression(we : ast.WhileExpression, env: object.Environment) -> object.Object:
     result = object.NULL
-    previnLoop = env.inLoop
-    env.inLoop = True
+    newEnv = object.Environment(env, True)
     while True:
         condition = Eval(we.condition, env)
         if isError(condition):
@@ -417,18 +445,15 @@ def evalWhileExpression(we : ast.WhileExpression, env: object.Environment) -> ob
     
         # if condition is true, eval consequence
         if isTruthy(condition):
-            result = Eval(we.block, env)
+            result = Eval(we.block, newEnv)
             if isinstance(result, (object.Break)):
-                env.inLoop = previnLoop
                 return object.NULL
             elif isinstance(result, (object.Error, object.Exit, object.ReturnValue)):
-                env.inLoop = previnLoop
                 return result
             elif isinstance(result, object.Continue):
                 result = object.NULL
                 continue
         else:
-            env.inLoop = previnLoop
             return result
 
 
@@ -436,20 +461,11 @@ def evalForExpression(floop : ast.ForExpression, env : object.Environment) -> ob
     # result of the for loop -> result of last statemnet executed
     result = object.NULL
     # remember if we were in a loop
-    previnLoop = env.inLoop
-    # set True inLoop
-    env.inLoop = True
-    # prev variables with the name used in floop.initali
-    prevName, prevValue = None, None
+    newEnv = object.Environment(env, True)
 
     # if there is an initial statement
     if floop.initial is not None:
-        # get name of the new variable
-        prevName = floop.initial.name.value
-        # get value of the prev value with same name
-        prevValue, _ = env.get(prevName)
-        # eval initial statement
-        initial = Eval(floop.initial, env)
+        initial = Eval(floop.initial, newEnv)
         if isError(initial):
             return initial
     
@@ -457,48 +473,67 @@ def evalForExpression(floop : ast.ForExpression, env : object.Environment) -> ob
         condition = object.TRUE
         # check condition of floop
         if floop.condition is not None:
-            condition = Eval(floop.condition, env)
+            condition = Eval(floop.condition, newEnv)
             if isError(condition):
                 return condition
 
-
         if isTruthy(condition):
             # eval block
-            result = Eval(floop.block, env)
+            result = Eval(floop.block, newEnv)
 
             # case of a result type which stops the loop
             if isinstance(result, (object.Error, object.Exit, object.ReturnValue, object.Break)):
-                env.inLoop = previnLoop
-                if floop.initial is not None:
-                    env.reset(floop.initial.name.value)
-                    if prevValue is not None:
-                        env.set(prevName, prevValue)
-
                 # return NULL if it was an object.Break
                 return object.NULL if isinstance(result, object.Break) else result
 
-            # continue -> execute floop.update and next iteration
-            elif isinstance(result, object.Continue):
-                if floop.update is not None:
-                    update = Eval(floop.update, env)
-                    if isError(update):
-                        return update
-                result = object.NULL
-                continue
-        
-            # update
             if floop.update is not None:
-                update = Eval(floop.update, env)
+                update = Eval(floop.update, newEnv)
                 if isError(update):
                     return update
+            
+            if isinstance(result, object.Continue):
+                result = object.NULL
 
         else:
-            env.inLoop = previnLoop
-            # if there was an initial statement
-            if floop.initial is not None:
-                # remove from env the variable
-                env.reset(floop.initial.name.value)
-                # if there was a previous value, restore it
-                if prevValue is not None:
-                    env.set(prevName, prevValue)
             return result
+
+def evalClassLiteral(classLiteral : ast.Classliteral) -> object.Object:
+    newClass = object.Class(classLiteral.body, object.Environment(None, False))
+    for statement in classLiteral.body.statements:
+        if not isinstance(statement, ast.LetStatement):
+            return newError("in class declaration there must be only Let statements")
+        _ = Eval(statement, newClass.env)
+    return newClass
+
+def evalClassInstanceExpression(node : ast.InfixExpression, env : object.Environment) -> object.Object:
+    if not isinstance(node.left, ast.Identifier) or not node.operator == ".":
+        return newError("Can't find a way to execute DOT operator")
+    
+    classInst, exist = env.get(node.left.value)
+    if not exist or not isinstance(classInst, object.ClassInstance):
+        return newError("{} does not exist in current scope", node.left.value)
+    
+    if isinstance(node.right, ast.Identifier):
+        identifierName = node.right.value
+        identifier, exist = classInst.env.get(identifierName)
+        return identifier
+
+    elif isinstance(node.right, ast.CallExpression):
+        # eval the function
+        function = Eval(node.right.function, classInst.env)
+        if isError(function):
+            return function
+        
+        if(isinstance(function, object.Class)):
+            return object.ClassInstance(function.env)
+        
+        args = evalExpressions(node.right.arguments, env)
+        if len(args) == 1 and isError(args[0]):
+            return args[0]
+
+        # apply the function
+        return applyFunction(function, args, classInst.env)
+    
+    else:
+        return newError("Can't find a way to execute DOT operator")
+

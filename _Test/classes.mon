@@ -1,0 +1,95 @@
+let Array = class{
+    let _array = []
+
+    let _push = fn(value){
+        _array = push(_array, value)
+    };
+
+    let _first = fn(){
+        return first(_array);
+    };
+
+    let _len = fn(){
+        return len(_array);
+    };
+
+    let _pop = fn(){
+        let lenArray = len(_array);
+        if (lenArray == 0){
+            return NULL;
+        }
+
+        let returnValue = last(_array);
+        let newArray = [];
+        for(let i = 0; i < lenArray - 1; i = i + 1){
+            push(newArray, _array[i]);
+        }
+        _array = newArray;
+        return(returnValue);
+    };
+
+    let _print = fn(){
+        print("[");
+        for(let i = 0; i < len(_array); i = i + 1){
+            print(_array[i]);
+            if (i != len(_array) - 1){
+                print(", ");
+            }
+        }
+        printl("]");
+    };
+
+    let _find = fn(n){
+        for(let i = 0; i < len(_array); i = i + 1){
+            if(_array[i] == n){
+                return true;
+            }
+        }
+        return false;
+    };
+
+    let _sort = fn(){
+        for(let i = 0; i < len(_array); i = i + 1){
+            for(let j = i; j < len(_array); j = j + 1){
+                if(_array[i] > _array[j]){
+                    let temp = _array[i];
+                    update(_array, i, _array[j]);
+                    update(_array, j, temp);
+                }
+            }
+        }
+    };
+
+    let _update = fn(index, value){
+        update(_array, index, value);
+    }
+
+    let _removeElements = fn(value) {
+        let newArray = [];
+        for(let i = 0; i < len(_array); i = i + 1){
+            if(_array[i] == value){
+                continue;
+            }
+            push(newArray, _array[i]);
+        }
+        _array = newArray;
+    }
+};
+
+let arr = Array();
+arr._push(10);
+arr._push(20);
+arr._push(30);
+arr._print();               // -> [10, 20, 30]
+let value = arr._pop();     
+arr._print();               // -> [10, 20]
+printl(value);              // -> 30
+printl(arr._find(10));      // -> true
+printl(arr._find(50));      // -> false
+arr._push(1);
+arr._push(15);
+arr._push(10);
+arr._sort();
+arr._print();               // -> [1, 10, 10, 15, 20]
+arr._removeElements(10);
+arr._print();               // -> [1, 15, 20]

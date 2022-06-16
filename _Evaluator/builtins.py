@@ -82,13 +82,16 @@ def _update(*args : List[object.Object]) -> object.Object:
 def _exit(*args : List[object.Object]) -> object.Object:
     return object.EXIT
 
-# print
+# printNNL (print without new line)
 def _print(*args : List[object.Object]) -> object.Object:
     for elem in args:
-        if elem.inspect() == "\\n":
-            print()
-        else:
-            print(elem.inspect(),end='')
+        print(elem.inspect(), end="")
+    return object.NULL
+
+# print
+def _printl(*args : List[object.Object]) -> object.Object:
+    for elem in args:
+        print(elem.inspect())
     return object.NULL
 
 # get a string out of an object
@@ -98,6 +101,33 @@ def _str(*args : List[object.Object]) -> object.Object:
     
     return object.String(str(args[0].inspect()))
 
+# get an int out of a str object
+def _int(*args : List[object.Object]) -> object.Object:
+    if (len(args) != 1):
+        return newError("wrong number of arguments. got={}, want=1", len(args))
+    
+    if not isinstance(args[0], object.String):
+        return object.NULL
+    
+    returnValue = object.Integer(None)
+
+    if "." in args[0].value:
+        try:
+            returnValue.value = float(args[0].value)
+        except ValueError:
+            return object.NULL
+    else:
+        try:
+            returnValue.value = int(args[0].value)
+        except ValueError:
+            return object.NULL
+    
+    return returnValue
+
+def _input(*args : List[object.Object]) -> object.Object:
+    str = input()
+    return object.String(str)
+
 builtins = {
     "len"    : object.Builtin(_len),
     "first"  : object.Builtin(_first),
@@ -105,7 +135,10 @@ builtins = {
     "rest"   : object.Builtin(_rest),
     "push"   : object.Builtin(_push),
     "print"  : object.Builtin(_print),
+    "printl" : object.Builtin(_printl),
     "update" : object.Builtin(_update),
     "exit"   : object.Builtin(_exit),
     "str"    : object.Builtin(_str),
+    "int"    : object.Builtin(_int),
+    "input"  : object.Builtin(_input),
 }

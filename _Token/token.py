@@ -23,6 +23,7 @@ keywords = {
     "break"     : BREAK,
     "continue"  : CONTINUE,
     "for"       : FOR,
+    "class"     : CLASS,
 }
 
 def newToken(tokenType : str, ch : str) -> Token:
